@@ -1,0 +1,12 @@
+*
+!\.gitignore
+!\.travis.yml
+!/config.nims
+!/simplePEG.nimble
+!/simplePEG.nim
+!/LICENSE
+!/README.md
+!*\.md
+!/simplePEG/
+!/scripts/
+!/tests/
