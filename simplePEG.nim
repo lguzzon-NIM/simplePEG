@@ -22,11 +22,11 @@ type
     FAsString: Maybe[string]
 
 
-template original(aSimplePEGSlice: SimplePEGSliceObject): untyped = 
+template original (aSimplePEGSlice: SimplePEGSliceObject): untyped = 
   aSimplePEGSlice.FSimplePEG.FSlices[aSimplePEGSlice.FSlicesIndex]
 
 
-proc invalidate(aSimplePEGSlice: SimplePEGSliceObject): SimplePEGSliceObject =
+proc invalidate (aSimplePEGSlice: SimplePEGSliceObject): SimplePEGSliceObject =
   aSimplePEGSlice.FSimplePEG.FSlices[aSimplePEGSlice.FSlicesIndex].FAsString = Nothing[string]()
   result = aSimplePEGSlice.FSimplePEG.FSlices[aSimplePEGSlice.FSlicesIndex]
   
@@ -49,7 +49,7 @@ proc asString* (aSimplePEGSlice: SimplePEGSliceObject): string =
       aSimplePEGSlice.FSimplePEG.FStream.setPosition(lOldPosition)
 
 
-template withSimplePEG(aString: string; aBody: untyped) =
+template withSimplePEG (aString: string; aBody: untyped) =
   let lStream : Stream = newStringStream(aString)
   if not lStream.isNil:
     var SimplePEG {.inject.} = SimplePEG(FStream:lStream, FSlices:newSeqOfCap[SimplePEGSliceObject](64))
