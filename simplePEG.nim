@@ -21,6 +21,7 @@ type
     FLength: SimplePEGLength
     FAsString: Maybe[string]
 
+
 template original(aSimplePEGSlice: SimplePEGSliceObject): untyped = 
   aSimplePEGSlice.FSimplePEG.FSlices[aSimplePEGSlice.FSlicesIndex]
 
