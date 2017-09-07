@@ -1,14 +1,16 @@
 
 
 type
-  Maybe*[T] = tuple
-    hasValue: bool
-    value: T
+  Maybe* [T] =  object {. final .}
+    case hasValue*: bool
+    of true: value*: T
+    else: discard
 
-proc Just*[T](value: T): Maybe[T] =
-  result.hasValue = true
-  result.value = value
 
-proc Nothing*[T]: Maybe[T] =
-  result.hasValue = false
+proc Just* [T](aValue: T): Maybe[T] =
+  result = Maybe[T](hasValue: true, value: aValue)
+
+
+proc Nothing* [T]: Maybe[T] =
+  result = Maybe[T](hasValue: false)
 
