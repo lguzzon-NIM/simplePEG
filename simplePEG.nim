@@ -24,6 +24,7 @@ type
 template original(aSimplePEGSlice: SimplePEGSliceObject): untyped = 
   aSimplePEGSlice.FSimplePEG.FSlices[aSimplePEGSlice.FSlicesIndex]
 
+
 proc invalidate(aSimplePEGSlice: SimplePEGSliceObject): SimplePEGSliceObject =
   aSimplePEGSlice.FSimplePEG.FSlices[aSimplePEGSlice.FSlicesIndex].FAsString = Nothing[string]()
   result = aSimplePEGSlice.FSimplePEG.FSlices[aSimplePEGSlice.FSlicesIndex]
