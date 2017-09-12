@@ -8,7 +8,7 @@ import simplePEG.consts
 type
   SimplePEGIndex = int
   SimplePEGLength = int
-  
+
   SimplePEG = ref SimplePEGObject not nil
   SimplePEGObject = object {. final .}
     FStream: Stream not nil
@@ -19,13 +19,14 @@ type
     FLength: SimplePEGLength
     FAsString: Maybe[string]
 
+  SimplePEGNodeObjectSeq = seq[SimplePEGNodeObject]
   SimplePEGNodeObject = object
     case FIsTerminal: bool
-    of true: 
+    of true:
       FSlice: SimplePEGSliceObject
-    else: 
+    else:
       FName: string
-      FItems: seq[SimplePEGNodeObject]
+      FItems: SimplePEGNodeObjectSeq
 
 
 proc asString* (aSimplePEGSlice: SimplePEGSliceObject): string =
@@ -53,7 +54,7 @@ template withSimplePEG (aString: string; aBody: untyped) =
 
 
 proc read* (aSimplePEG: SimplePEG, aLength: SimplePEGLength, aUsePeek: static[bool]): Maybe[SimplePEGSliceObject] =
-  if 1>aLength: 
+  if 1>aLength:
     result = Nothing[SimplePEGSliceObject]()
   else:
     try:
@@ -61,16 +62,16 @@ proc read* (aSimplePEG: SimplePEG, aLength: SimplePEGLength, aUsePeek: static[bo
       when aUsePeek:
         defer:
           aSimplePEG.FStream.setPosition(lBeginIndex)
-      try: 
+      try:
         let lEndPosition = lBeginIndex + aLength
         aSimplePEG.FStream.setPosition(lEndPosition)
         if lEndPosition == aSimplePEG.FStream.getPosition:
           result = Just(SimplePEGSliceObject(FSimplePEG:aSimplePEG, FIndex:lBeginIndex, FLength:aLength))
-        else: 
+        else:
           result = Nothing[SimplePEGSliceObject]()
-      except: 
+      except:
         result = Nothing[SimplePEGSliceObject]()
-    except: 
+    except:
       result = Nothing[SimplePEGSliceObject]()
 
 
@@ -82,9 +83,9 @@ proc charInChars* (aSimplePEG: SimplePEG, aChars: string | set[char], aUsePeek: 
       when aSaveAsString:
         lRead.value.FAsString = Just(lAsString)
       result = Just(lRead.value)
-    else: 
+    else:
       result = Nothing[SimplePEGSliceObject]()
-  else: 
+  else:
     result = Nothing[SimplePEGSliceObject]()
 
 
@@ -113,9 +114,9 @@ proc stringInString* (aSimplePEG: SimplePEG, aString: string, aCasesInsensitive:
       when aSaveAsString:
         lRead.value.FAsString = Just(lAsString)
       result = Just(lRead.value)
-    else: 
+    else:
       result = Nothing[SimplePEGSliceObject]()
-  else: 
+  else:
     result = lRead
 
 
@@ -133,8 +134,8 @@ template stringInStringPeekCase* (aSimplePEG: SimplePEG, aString: string): Maybe
 
 template stringInStringPeekNoCase* (aSimplePEG: SimplePEG, aString: string): Maybe[SimplePEGSliceObject] =
   aSimplePEG.stringInString(aString, aString, true, true, false)
-  
-      
+
+
 template stringInStringAsString* (aSimplePEG: SimplePEG, aString: string): Maybe[SimplePEGSliceObject] =
   aSimplePEG.stringInString(aString, false, false, true)
 
@@ -151,139 +152,187 @@ template stringInStringPeekNoCaseAsString* (aSimplePEG: SimplePEG, aString: stri
   aSimplePEG.stringInString(aString, aString, true, true, true)
 
 
-proc peg_WAXEYE_Ws(aSimplePEG: SimplePEG): Maybe[SimplePEGNodeObject] = 
+template asterisc(aUsingStack: static[bool], aBody: untyped): untyped =
+  while true:
+    let lPosition = aSimplePEG.FStream.getPosition
+    when aUsingStack:
+      let lStackLen = lStack.len
+
+    aBody
+
+    if not lResult.hasValue:
+      when aUsingStack:
+        lStack.setLen(lStackLen)
+      aSimplePEG.FStream.setPosition(lPosition)
+      break
+  lResult = Just(SimplePEGNodeObject(FIsTerminal: false,FName: "*"))
+
+
+template asteriscStack(aBody: untyped): untyped =
+  true.asterisc:
+    aBody
+
+
+template asteriscNoStack(aBody: untyped): untyped =
+  false.asterisc:
+    aBody
+
+
+template orPipe(aUsingStack: static[bool], aBody, aOrBody: untyped): untyped =
+  let lPosition = aSimplePEG.FStream.getPosition
+  when aUsingStack:
+    let lStackLen = lStack.len
+
+  aBody  
+
+  if not lResult.hasValue:
+    when aUsingStack:
+      lStack.setLen(lStackLen)
+    aSimplePEG.FStream.setPosition(lPosition)
+    
+    aOrBody
+
+proc peg_WAXEYE_Ws(aSimplePEG: SimplePEG): Maybe[SimplePEGNodeObject] =
+  const lUseStack = false
+  var lResult = Just(SimplePEGNodeObject(FIsTerminal: false,FName: "WAXEYE_Ws"))
+
+  lUseStack.asterisc:
+    lUseStack.orPipe:
+      let lCharInChars = aSimplePEG.charInChars({' ', '\t'})
+      if lCharInChars.hasValue:
+        lResult = Just(SimplePEGNodeObject(FIsTerminal: true,FSlice:lCharInChars.value))
+      else:
+        lResult = Nothing[SimplePEGNodeObject]()
+    do:
+        discard
+    discard
+
+
+proc peg_WAXEYE_Definition(aSimplePEG: SimplePEG): Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_Definition(aSimplePEG: SimplePEG): Maybe[SimplePEGNodeObject] = 
-  discard
-  
 
-proc peg_WAXEYE_WAXEYE(aSimplePEG: SimplePEG): Maybe[SimplePEGNodeObject] = 
-  var lStack = newseq[SimplePEGNodeObject]()
+proc peg_WAXEYE_WAXEYE(aSimplePEG: SimplePEG): Maybe[SimplePEGNodeObject] =
+  var lStack = newSeqOfCap[SimplePEGNodeObject](8)
   var lResult = aSimplePEG.peg_WAXEYE_Ws
   if lResult.hasValue:
-    while true:
-      let lPosition = aSimplePEG.FStream.getPosition
+    asteriscStack do:
       lResult = peg_WAXEYE_Definition(aSimplePEG)
       if lResult.hasValue:
         lStack.add(lResult.value)
-      else:
-        aSimplePEG.FStream.setPosition(lPosition)
-        break
   if lResult.hasValue:
     result = Just(SimplePEGNodeObject(FIsTerminal: false,FName: "WAXEYE", FItems: lStack))
   else:
     result = Nothing[SimplePEGNodeObject]()
 
 
-proc peg_WAXEYE_Alternation: Maybe[SimplePEGNodeObject] = 
+proc peg_WAXEYE_Alternation: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_Sequence: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_Sequence: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_Unit: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_Unit: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_Prefix: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_Prefix: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_Identifier: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_Identifier: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_Literal: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_Literal: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_CaseLiteral: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_CaseLiteral: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_LChar: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_LChar: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_CharClass: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_CharClass: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_Range: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_Range: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_Char: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_Char: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_Hex: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_Hex: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_WildCard: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_WildCard: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_Arrow: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_Arrow: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_LeftArrow: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_LeftArrow: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_PruneArrow: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_PruneArrow: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_VoidArrow: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_VoidArrow: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_Alt: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_Alt: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_Open: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_Open: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_Close: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_Close: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_Comma: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_Comma: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_SComment: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_SComment: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_MComment: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_MComment: Maybe[SimplePEGNodeObject] =
   discard
 
-  
-proc peg_WAXEYE_EndOfLine: Maybe[SimplePEGNodeObject] = 
+
+proc peg_WAXEYE_EndOfLine: Maybe[SimplePEGNodeObject] =
   discard
 
-  
 
 
-      
+
+
 proc getMessage*: string =
     result = cHelloWorld
 
 
 
-when isMainModule: 
+when isMainModule:
   echo getMessage()
-  "12345aAbC6".withSimplePEG do:
+  "12345aAbC6".withSimplePEG:
     echo "Peek -> " & $SimplePeg.charInCharsPeek("12")
     echo "Read -> " & $SimplePeg.charInChars("12")
     echo "----"
