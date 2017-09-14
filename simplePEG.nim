@@ -47,10 +47,11 @@ proc asString* (aSimplePEGSlice: SimplePEGSliceObject): string =
 
 
 template withSimplePEG (aString: string; aBody: untyped) =
-  let lStream : Stream = newStringStream(aString)
-  if not lStream.isNil:
-    var SimplePEG {.inject.} = SimplePEG(FStream:lStream)
-    aBody
+  block withSimplePEG:
+    let lStream : Stream = newStringStream(aString)
+    if not lStream.isNil:
+      var SimplePEG {.inject.} = SimplePEG(FStream:lStream)
+      aBody
 
 
 proc read* (aSimplePEG: SimplePEG, aLength: SimplePEGLength, aUsePeek: static[bool]): Maybe[SimplePEGSliceObject] =
@@ -152,121 +153,140 @@ template stringInStringPeekNoCaseAsString* (aSimplePEG: SimplePEG, aString: stri
   aSimplePEG.stringInString(aString, aString, true, true, true)
 
 
+template innerPEGRule(aRuleName, aParamName: untyped, atype: untyped, aBody: untyped) =
+  proc aRuleName(aParamName : SimplePEG): atype =
+    aBody
+
+
+template boolPEGRule(aRuleName: untyped, aBody: untyped): untyped =
+  innerPEGRule(aRuleName, aSimplePEG, bool):
+    var lResult {. inject .} = false
+    aBody
+    result = lResult
+  
+
+template nodePEGRule(aRuleName: untyped, aBody: untyped): untyped =
+  innerPEGRule(aRuleName, aSimplePEG, Maybe[SimplePEGNodeObject]):
+    var lStack {. inject .}= newSeqOfCap[SimplePEGNodeObject](8)
+    var lResult {. inject .} = Nothing[SimplePEGNodeObject]()
+    aBody
+    if lResultIsTrue(lResult):
+      result = Just(SimplePEGNodeObject(FIsTerminal: false,FName: "aRuleName", FItems: lStack))
+    else:
+      result = Nothing[SimplePEGNodeObject]()
+  
+
 template lResultIsTrue(aResult: bool | Maybe[SimplePEGNodeObject]): untyped =
   when aResult is bool:
     aResult
   else:
     aResult.hasValue
 
-template anyPEG(aSimplePEG: SimplePEG): untyped =
-  lResult = aSimplePEG.read(1, false).hasValue
 
-template zeroOrMorePEG(aUsingStack: static[bool], aBody: untyped): untyped =
-  while true:
+template anyPEG(aSimplePEG: SimplePEG): untyped =
+  block anyPEG:
+    lResult = aSimplePEG.read(1, false).hasValue
+
+
+template zeroOrMorePEG(aBody: untyped): untyped =
+  block zeroOrMorePEG:
+    while true:
+      let lPosition = aSimplePEG.FStream.getPosition
+      when (not(lResult is bool)):
+        let lStackLen = lStack.len
+      aBody
+      if not lResultIsTrue(lResult):
+        when (not(lResult is bool)):
+          lStack.setLen(lStackLen)
+        aSimplePEG.FStream.setPosition(lPosition)
+        break
+    when lResult is bool:
+      lResult = true
+    else:
+      lResult = Just(SimplePEGNodeObject(FIsTerminal: false,FName: "*"))
+
+
+template orPEG(aBody, aOrBody: untyped): untyped =
+  block orPEG:
     let lPosition = aSimplePEG.FStream.getPosition
-    when aUsingStack:
+    when (not(lResult is bool)):
       let lStackLen = lStack.len
     aBody
     if not lResultIsTrue(lResult):
-      when aUsingStack:
+      when (not(lResult is bool)):
         lStack.setLen(lStackLen)
       aSimplePEG.FStream.setPosition(lPosition)
-      break
-  when lResult is bool:
-    lResult = true
-  else:
-    lResult = Just(SimplePEGNodeObject(FIsTerminal: false,FName: "*"))
-
-
-template zeroOrMorePEGStack(aBody: untyped): untyped =
-  true.zeroOrMorePEG:
-    aBody
-
-
-template zeroOrMorePEGNoStack(aBody: untyped): untyped =
-  false.zeroOrMorePEG:
-    aBody
-
-
-template orPEG(aUsingStack: static[bool], aBody, aOrBody: untyped): untyped =
-  let lPosition = aSimplePEG.FStream.getPosition
-  when aUsingStack:
-    let lStackLen = lStack.len
-  aBody
-  if not lResultIsTrue(lResult):
-    when aUsingStack:
-      lStack.setLen(lStackLen)
-    aSimplePEG.FStream.setPosition(lPosition)
-    aOrBody
-
-
-template orPEGStack(aBody, aOrBody: untyped): untyped =
-  true.orPEG:
-    aBody
-  do:
-    aOrBody
-
-
-template orPEGNoStack(aBody, aOrBody: untyped): untyped =
-  false.orPEG:
-    aBody
-  do:
-    aOrBody
+      aOrBody
 
 
 template andPEG(aBody, aOrBody: untyped): untyped =
-  aBody
-  if lResultIsTrue(lResult):
-    aOrBody
+  block andPEG:
+    aBody
+    if lResultIsTrue(lResult):
+      aOrBody
 
 
 template notPEG(aBody): untyped =
-  let lPosition = aSimplePEG.FStream.getPosition
-  aBody
-  aSimplePEG.FStream.setPosition(lPosition)
-  lResult = not lResult
+  block notPEG:
+    let lPosition = aSimplePEG.FStream.getPosition
+    aBody
+    aSimplePEG.FStream.setPosition(lPosition)
+    lResult = not lResult
 
 
-proc peg_WAXEYE_EndOfLine(aSimplePEG: SimplePEG): bool =
-  var lResult = false
-  orPEGNoStack:
-    andPEG:
-      lResult = aSimplePEG.charInChars({'\13'}).hasValue
+template ruleRefPEG(aRuleName: untyped): untyped =
+  block ruleRefPEG:
+    let lRuleResult = aSimplePEG.aRuleName
+    when lResult is bool:
+      when lRuleResult is bool:
+        lResult = lRuleResult
+      else:
+        lResult = lRuleResult.hasValue        
+    else:
+      when lRuleResult is bool:
+        if lRuleResult:
+          result = Just(SimplePEGNodeObject(FIsTerminal: false,FName: "aRuleName"))
+        else:
+          result = Nothing[SimplePEGNodeObject]()
+      else:
+        lResult = lRuleResult        
+
+
+boolPEGRule(peg_WAXEYE_EndOfLine):
+    orPEG:
+      andPEG:
+        lResult = aSimplePEG.charInChars({'\13'}).hasValue
+      do:
+        lResult = aSimplePEG.charInChars({'\10'}).hasValue      
     do:
-      lResult = aSimplePEG.charInChars({'\10'}).hasValue      
-  do:
-    lResult = aSimplePEG.charInChars({'\10'}).hasValue
-  result = lResult
+      lResult = aSimplePEG.charInChars({'\10'}).hasValue
 
 
-proc peg_WAXEYE_SComment(aSimplePEG: SimplePEG): bool =
-  var lResult = false
+boolPEGRule(peg_WAXEYE_SComment):
   andPEG:
     lResult = aSimplePEG.charInChars({'#'}).hasValue
   do:
-    zeroOrMorePEGNoStack:
+    zeroOrMorePEG:
       andPEG:
         notPEG:
-          lResult = aSimplePEG.peg_WAXEYE_EndOfLine
+          ruleRefPEG(peg_WAXEYE_EndOfLine)
       do:
         aSimplePEG.anyPeg
-      orPEGNoStack:
-        lResult = aSimplePEG.peg_WAXEYE_EndOfLine
+      orPEG:
+        ruleRefPEG(peg_WAXEYE_EndOfLine)
       do:
         notPEG:
           aSimplePEG.anyPeg
-  result = lResult
 
 
-proc peg_WAXEYE_MComment(aSimplePEG: SimplePEG): bool =
-  var lResult = false
+boolPEGRule(peg_WAXEYE_MComment):
   andPEG:
     lResult = aSimplePEG.stringInString("/*").hasValue
   do:
     andPeg:
-      zeroOrMorePEGNoStack:
-        orPEGNoStack:
-          lResult = aSimplePEG.peg_WAXEYE_MComment
+      zeroOrMorePEG:
+        orPEG:
+          ruleRefPEG(peg_WAXEYE_MComment)
         do:
           andPEG:
             notPEG:
@@ -275,44 +295,33 @@ proc peg_WAXEYE_MComment(aSimplePEG: SimplePEG): bool =
             aSimplePEG.anyPEG
     do:
       lResult = aSimplePEG.stringInString("*/").hasValue
-  result = lResult
 
 
-proc peg_WAXEYE_Ws(aSimplePEG: SimplePEG): bool =
-  const lUseStack = false
-  var lResult = false
-
-  lUseStack.zeroOrMorePEG:
-    lUseStack.orPEG:
+boolPEGRule(peg_WAXEYE_Ws):
+  zeroOrMorePEG:
+    orPEG:
       lResult = aSimplePEG.charInChars({' ', '\t'}).hasValue
     do:
-      lUseStack.orPEG:
-        lResult = aSimplePEG.peg_WAXEYE_EndOfLine
+      orPEG:
+        ruleRefPEG(peg_WAXEYE_EndOfLine)
       do:
-        lUseStack.orPEG:
-          lResult = aSimplePEG.peg_WAXEYE_SComment
+        orPEG:
+          ruleRefPEG(peg_WAXEYE_SComment)
         do:
-          lResult = aSimplePEG.peg_WAXEYE_MComment
-  result = lResult
+          ruleRefPEG(peg_WAXEYE_MComment)
+
 
 proc peg_WAXEYE_Definition(aSimplePEG: SimplePEG): Maybe[SimplePEGNodeObject] =
   discard
 
 
-proc peg_WAXEYE_WAXEYE(aSimplePEG: SimplePEG): Maybe[SimplePEGNodeObject] =
-  var lStack = newSeqOfCap[SimplePEGNodeObject](8)
-  var lResult = aSimplePEG.peg_WAXEYE_Ws
-  if lResultIsTrue(lResult):
-    zeroOrMorePEGStack do:
-      let lPEG = peg_WAXEYE_Definition(aSimplePEG)
-      if lPEG.hasValue:
-        lStack.add(lPEG.value)
-  if lResultIsTrue(lResult):
-    result = Just(SimplePEGNodeObject(FIsTerminal: false,FName: "WAXEYE", FItems: lStack))
-  else:
-    result = Nothing[SimplePEGNodeObject]()
-
-
+nodePEGRule(peg_WAXEYE_WAXEYE):
+  andPEG:
+      ruleRefPEG(peg_WAXEYE_Ws)
+  do:
+    zeroOrMorePEG do:
+      ruleRefPEG(peg_WAXEYE_Definition)
+  
 proc peg_WAXEYE_Alternation: Maybe[SimplePEGNodeObject] =
   discard
 
