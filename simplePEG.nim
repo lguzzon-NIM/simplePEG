@@ -62,8 +62,9 @@ template withSimplePEG (aString: string; aBody: untyped) =
   block withSimplePEG:
     let lStream : Stream = newStringStream(aString)
     if not lStream.isNil:
-      var SimplePEG {.inject.} = SimplePEG(FStream:lStream)
-      aBody
+      let SimplePEG {.inject.} = SimplePEG(FStream:lStream)
+      block withSimplePEGBody:
+        aBody
 
 
 proc read* (aSimplePEG: SimplePEG, aLength: SimplePEGLength, aUsePeek: static[bool]): Maybe[SimplePEGSliceObject] =
@@ -165,24 +166,17 @@ template stringInStringPeekNoCaseAsString* (aSimplePEG: SimplePEG, aString: stri
   aSimplePEG.stringInString(aString, aString, true, true, true)
 
 
+template innerPEGRule(aRuleName, aParamName: untyped, atype: untyped, aBody: untyped) =
+  proc aRuleName(aParamName : SimplePEG): atype =
+    aBody
+
+
 template boolPEGRule(aRuleName: untyped, aBody: untyped): untyped =
-  proc aRuleName(aSimplePEG: SimplePEG): bool =
+  innerPEGRule(aRuleName, aSimplePEG, bool):
     var lResult {. inject .} = false
     aBody
     result = lResult
-
-
-template nodePEGRule(aRuleName: untyped, aBody: untyped): untyped =
-  proc aRuleName(aSimplePEG: SimplePEG): Maybe[SimplePEGNodeObject] =
-    discard
-    # var lStack {. inject .} = newSeqOfCap[SimplePEGNodeObject](8)
-    # var lResult {. inject .} = Nothing[SimplePEGNodeObject]()
-    # aBody
-    # if lResultIsTrue(lResult):
-    #   result = Just(SimplePEGNodeObject(FIsTerminal: false,FName: "aRuleName", FItems: lStack))
-    # else:
-    #   result = Nothing[SimplePEGNodeObject]()
-
+  
 
 template lResultIsTrue(aResult: bool | Maybe[SimplePEGNodeObject]): untyped =
   when aResult is bool:
@@ -190,6 +184,17 @@ template lResultIsTrue(aResult: bool | Maybe[SimplePEGNodeObject]): untyped =
   else:
     aResult.hasValue
 
+
+template nodePEGRule(aRuleName: untyped, aBody: untyped): untyped =
+  innerPEGRule(aRuleName, aSimplePEG, Maybe[SimplePEGNodeObject]):
+    var lStack {. inject .}= newSeqOfCap[SimplePEGNodeObject](8)
+    var lResult {. inject .} = Nothing[SimplePEGNodeObject]()
+    aBody
+    if lResultIsTrue(lResult):
+      result = Just(SimplePEGNodeObject(FIsTerminal: false,FName: "aRuleName", FItems: lStack))
+    else:
+      result = Nothing[SimplePEGNodeObject]()
+  
 
 template anyPEG: untyped =
   block anyPEG:
@@ -254,7 +259,7 @@ template notPEG(aBody: untyped): untyped =
 
 template ruleRefPEG(aRuleName: untyped): untyped =
   block ruleRefPEG:
-    let lRuleResult = aSimplePEG.aRuleName
+    let lRuleResult = aSimplePEG.aRuleName()
     when lResult is bool:
       when lRuleResult is bool:
         lResult = lRuleResult
@@ -285,6 +290,7 @@ template terminalPEG(aExpectedValue: string | set[char]): untyped =
       
       if lTerminal.hasValue:
         lResult = Just(SimplePEGNodeObject(FIsTerminal: true,FSlice: lTerminal.value))
+        lStack.add(lResult.value)
       else:
         lResult = Nothing[SimplePEGNodeObject]()
 
@@ -301,10 +307,11 @@ template stringOfPEG(aBody: untyped): untyped =
   block stringOfPEG:
     let lStackLen = lStack.len
     aBody
+    echo "stringOfPEG " & $lStackLen
+    echo "stringOfPEG " & $lStack.len
     if lResultIsTrue(lResult) and (lStackLen < lStack.len):
       var lName = ""
-      echo "lName ... " & lName
-      let lSlice = lStack[lStackLen .. (lStack.len-1)]
+      let lSlice = lStack[lStackLen .. <lStack.len]
       for lItem in lSlice:
         lName &= lItem.valuePEG
       let lStringOfPEG = SimplePEGNodeObject(FIsTerminal: false,FName:lName, FItems: lSlice)
@@ -378,19 +385,16 @@ nodePEGRule(peg_WAXEYE_Alternation):
 nodePEGRule(peg_WAXEYE_Arrow):
   discard
 
-
 nodePEGRule(peg_WAXEYE_Identifier):
-  echo "nodePEGRule" 
-  #{'a'..'z', 'A'..'Z', '_'}.terminalPEG
-  # andPEG:
-  #   stringOfPEG:
-  #     andPEG:
-  #       {'a'..'z', 'A'..'Z', '_'}.terminalPEG
-  #     do:
-  #       zeroOrMorePEG:
-  #         {'a'..'z', 'A'..'Z', '0'..'9', '_', '-'}.terminalPEG          
-  # do:
-  #ruleRefPEG(peg_WAXEYE_WS)
+  andPEG:
+    stringOfPEG:
+      andPEG:
+        {'a'..'z', 'A'..'Z', '_'}.terminalPEG
+      do:
+        zeroOrMorePEG:
+          {'a'..'z', 'A'..'Z', '0'..'9', '_', '-'}.terminalPEG          
+  do:
+    ruleRefPEG(peg_WAXEYE_WS)
 
 
 nodePEGRule(peg_WAXEYE_Definition):
@@ -495,27 +499,29 @@ proc getMessage*: string =
 
 when isMainModule:
   echo getMessage()
-  "12345aAbC6".withSimplePEG:
-    echo "Peek -> " & $SimplePeg.charInCharsPeek("12")
-    echo "Read -> " & $SimplePeg.charInChars("12")
-    echo "----"
-    echo "Peek -> " & $SimplePeg.charInCharsPeek({'1', '2'})
-    echo "Read -> " & $SimplePeg.charInChars({'1', '2'})
-    echo "Read -> " & $SimplePEG.stringInStringNoCase("345A")
-    echo "Read -> " & $SimplePEG.stringInString("AbC6")
-    echo "Read -> " & $SimplePEG.stringInStringNoCase("A")
-  " /* -- /* --- */ -- */".withSimplePEG:
-    echo SimplePEG.peg_WAXEYE_MComment
-  " /* -- /* --- */ -- */".withSimplePEG:
-    echo SimplePEG.peg_WAXEYE_WS
-  "/* -- /* --- */ -- *".withSimplePEG:
-    echo SimplePEG.peg_WAXEYE_MComment
-  "/* -- /* --- */ -- */".withSimplePEG:
-    echo SimplePEG.peg_WAXEYE_MComment
-  "/**/".withSimplePEG:
-    echo SimplePEG.peg_WAXEYE_MComment
   "abc_9-10_A   ".withSimplePEG:
-    echo SimplePEG.peg_WAXEYE_Identifier
-  "/**/".withSimplePEG:
-    echo SimplePEG.peg_WAXEYE_MComment
+    let a = SimplePEG.peg_WAXEYE_Identifier
+    if a.hasValue:
+      echo "a.value"
+  # "/**/".withSimplePEG:
+  #   echo SimplePEG.peg_WAXEYE_MComment
+  # "12345aAbC6".withSimplePEG:
+  #   echo "Peek -> " & $SimplePeg.charInCharsPeek("12")
+  #   echo "Read -> " & $SimplePeg.charInChars("12")
+  #   echo "----"
+  #   echo "Peek -> " & $SimplePeg.charInCharsPeek({'1', '2'})
+  #   echo "Read -> " & $SimplePeg.charInChars({'1', '2'})
+  #   echo "Read -> " & $SimplePEG.stringInStringNoCase("345A")
+  #   echo "Read -> " & $SimplePEG.stringInString("AbC6")
+  #   echo "Read -> " & $SimplePEG.stringInStringNoCase("A")
+  # " /* -- /* --- */ -- */".withSimplePEG:
+  #   echo SimplePEG.peg_WAXEYE_MComment
+  # " /* -- /* --- */ -- */".withSimplePEG:
+  #   echo SimplePEG.peg_WAXEYE_WS
+  # "/* -- /* --- */ -- *".withSimplePEG:
+  #   echo SimplePEG.peg_WAXEYE_MComment
+  # "/* -- /* --- */ -- */".withSimplePEG:
+  #   echo SimplePEG.peg_WAXEYE_MComment
+  # "/**/".withSimplePEG:
+  #   echo SimplePEG.peg_WAXEYE_MComment
 
