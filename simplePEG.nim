@@ -1,5 +1,6 @@
 
 import streams
+import strutils
 
 import simplePEG.typeEx
 import simplePEG.strProcs
@@ -28,6 +29,7 @@ type
       FName: string
       FItems: SimplePEGNodeObjectSeq
 
+
 proc asString* (aSimplePEGSlice: SimplePEGSliceObject): string =
   if aSimplePEGSlice.FAsString.hasValue:
     result = aSimplePEGSlice.FAsString.value
@@ -45,18 +47,77 @@ proc asString* (aSimplePEGSlice: SimplePEGSliceObject): string =
       aSimplePEGSlice.FSimplePEG.FStream.setPosition(lOldPosition)
 
 
-proc valuePEG (aSimplePEGNodeObject: SimplePEGNodeObject): string =
-  if aSimplePEGNodeObject.FIsTerminal:
-    result = aSimplePEGNodeObject.FSlice.asString
-  else:
-    result = ""
-    for lItem in aSimplePEGNodeObject.FItems:
-      result &= lItem.valuePEG
-      
+proc `$`(aSimplePEGNodeObject: SimplePEGNodeObject): string =
+  
+  proc innerEcho(aValue: SimplePEGNodeObject, aTabs: int): string =
+    if aValue.FIsTerminal:
+      result = ("""
+      Is Terminal
+        Slice -> $1
+        Slice AsString -> $2
+        
+      """ % [$aValue.FSlice, aValue.FSlice.asString()]).indent(aTabs)
+    else:
+      result = ("""
+      Not Is Terminal
+        Name -> $1
+      """ % [$aValue.Fname]).indent(aTabs)
+      let lTabs = aTabs + 1
+      for lItem in aValue.FItems:
+        result &= innerEcho(lItem, lTabs)
+  
+  innerEcho(aSimplePEGNodeObject, 1)
 
-template valuePEG(aNode: Maybe[SimplePEGNodeObject]): string =
-  (if aNode.hasValue: aNode.value.valuePEG  else: "")
-    
+
+proc startIndex(aSelf: SimplePEGNodeObject): int =
+  when aSelf is SimplePEGNodeObject:
+    let lSelf = aSelf
+  else:
+    if not aSelf.hasValue:
+      return -1
+    let lSelf = aSelf.value      
+  if lSelf.FIsTerminal:
+    result = lSelf.FSlice.FIndex
+  else:
+    if lSelf.FItems.isNil:
+      result = -1
+    else:
+      result = startIndex(lSelf.FItems[0])
+
+
+proc endIndex(aSelf: SimplePEGNodeObject | Maybe[SimplePEGNodeObject]): int =
+  when aSelf is SimplePEGNodeObject:
+    let lSelf = aSelf
+  else:
+    if not aSelf.hasValue:
+      return -1
+    let lSelf = aSelf.value      
+  if lSelf.FIsTerminal:
+    result = lSelf.FSlice.FIndex + lSelf.FSlice.FLength - 1
+  else:
+    if lSelf.FItems.isNil:
+      result = -1
+    else:
+      result = endIndex(lSelf.FItems[<lSelf.FItems.len])
+
+
+proc valuePEG (aSelf: SimplePEGNodeObject | Maybe[SimplePEGNodeObject]): string =
+  when aSelf is SimplePEGNodeObject:
+    let lSelf = aSelf
+  else:
+    if not aSelf.hasValue:
+      return ""
+    let lSelf = aSelf.value      
+  if lSelf.FIsTerminal:
+    result = lSelf.FSlice.asString
+  else:
+    if not lSelf.FItems.isNil:
+      result = ""
+      for lItem in lSelf.FItems:
+        result &= lItem.valuePEG
+    else:
+      result = lSelf.FName
+
 
 template withSimplePEG (aString: string; aBody: untyped) =
   block withSimplePEG:
@@ -295,26 +356,15 @@ template terminalPEG(aExpectedValue: string | set[char]): untyped =
         lResult = Nothing[SimplePEGNodeObject]()
 
 
-proc `[]`[T](s: seq[T], x: Slice[int]): seq[T] =
-  ## slice operation for sequences.
-  var a = x.a
-  var L = x.b - a + 1
-  result = newSeqOfCap[T](L)
-  for i in 0.. <L: result[i] = s[i + a]
-
-
 template stringOfPEG(aBody: untyped): untyped =
   block stringOfPEG:
     let lStackLen = lStack.len
     aBody
-    echo "stringOfPEG " & $lStackLen
-    echo "stringOfPEG " & $lStack.len
     if lResultIsTrue(lResult) and (lStackLen < lStack.len):
-      var lName = ""
-      let lSlice = lStack[lStackLen .. <lStack.len]
-      for lItem in lSlice:
-        lName &= lItem.valuePEG
-      let lStringOfPEG = SimplePEGNodeObject(FIsTerminal: false,FName:lName, FItems: lSlice)
+      var lItems: SimplePEGNodeObjectSeq = newSeqOfCap[SimplePEGNodeObject](lStack.len - lStackLen)
+      for lItem in lStackLen .. <lStack.len:
+        lItems.add(lStack[lItem])
+      let lStringOfPEG = SimplePEGNodeObject(FIsTerminal: false, FName:"$", FItems:lItems)
       lStack.setLen(lStackLen)
       lStack.add(lStringOfPEG)
 
@@ -490,8 +540,6 @@ nodePEGRule(peg_WAXEYE_Comma):
   discard
 
 
-
-
 proc getMessage*: string =
     result = cHelloWorld
 
@@ -499,10 +547,10 @@ proc getMessage*: string =
 
 when isMainModule:
   echo getMessage()
-  "abc_9-10_A   ".withSimplePEG:
+  "abc_9-10_A   A".withSimplePEG:
     let a = SimplePEG.peg_WAXEYE_Identifier
-    if a.hasValue:
-      echo "a.value"
+    echo $a
+    echo endIndex(a)
   # "/**/".withSimplePEG:
   #   echo SimplePEG.peg_WAXEYE_MComment
   # "12345aAbC6".withSimplePEG:
