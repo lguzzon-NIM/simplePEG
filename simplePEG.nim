@@ -466,26 +466,6 @@ template  discardPEG (aBody: untyped): untyped =
     popStackStatePEG
     
 
-leftPEGRule(peg_WAXEYE_LChar):
-  discard
-
-
-leftPEGRule(peg_WAXEYE_CharClass):
-  discard
-
-
-leftPEGRule(peg_WAXEYE_Range):
-  discard
-
-
-leftPEGRule(peg_WAXEYE_Char):
-  discard
-
-
-leftPEGRule(peg_WAXEYE_WildCard):
-  discard
-
-
 voidPEGRule(peg_WAXEYE_EndOfLine):
     orPEG:
       andPEG:
@@ -494,6 +474,106 @@ voidPEGRule(peg_WAXEYE_EndOfLine):
         {'\10'}.terminalPEG
     do:
       {'\10'}.terminalPEG
+
+
+leftPEGRule(peg_WAXEYE_LChar):
+  orPEG:
+    andPEG:
+      "\\".terminalPEG
+    do:
+      {'n', 'r', 't', '\'', '"', '\\'}.terminalPEG
+  do:
+    andPEG:
+      notPEG:
+        "\\".terminalPEG
+    do:
+      andPEG:
+        notPEG:
+          ruleRefPEG(peg_WAXEYE_EndOfLine)
+      do:
+        anyPEG
+
+
+leftPEGRule(peg_WAXEYE_Hex):
+  andPEG:
+    discardPEG:
+      "\\<".terminalPEG
+  do:
+    andPEG:
+      {'0'..'9', 'A'..'F', 'a'..'f'}.terminalPEG
+    do:
+      andPEG:
+        {'0'..'9', 'A'..'F', 'a'..'f'}.terminalPEG
+      do:
+        discardPEG:
+          ">".terminalPEG
+
+
+leftPEGRule(peg_WAXEYE_Range):
+  andPEG:
+    orPEG:
+      ruleRefPEG(peg_WAXEYE_Char)
+    do:
+      ruleRefPEG(peg_WAXEYE_Hex)
+  do:
+    optionPEG:
+      andPeg:
+        discardPEG:
+          "-".terminalPEG
+      do:
+        orPEG:
+          ruleRefPEG(peg_WAXEYE_Char)
+        do:
+          ruleRefPEG(peg_WAXEYE_Hex)
+
+
+leftPEGRule(peg_WAXEYE_CharClass):
+  andPEG:
+    discardPEG:
+      "[".terminalPEG
+  do:
+    andPEG:
+      zeroOrMorePEG:
+        andPEG:
+          notPEG:
+            "]".terminalPEG
+        do:
+          ruleRefPEG(peg_WAXEYE_Range)
+    do:
+      andPEG:
+        discardPEG:
+          "]".terminalPEG
+      do:
+        ruleRefPEG(peg_WAXEYE_Ws)
+
+
+leftPEGRule(peg_WAXEYE_Char):
+  orPEG:
+    andPEG:
+      "\\".terminalPEG
+    do:
+      {'n', 'r', 't', '-', ']', '\\'}.terminalPEG
+  do:
+    andPEG:
+      notPEG:
+        "\\".terminalPEG
+    do:
+      andPEG:
+        notPEG:
+          "]".terminalPEG
+      do:
+        andPEG:
+          notPEG:
+            ruleRefPEG(peg_WAXEYE_EndOfLine)
+        do:
+          anyPEG
+
+
+leftPEGRule(peg_WAXEYE_WildCard):
+  andPEG:
+    ".".terminalPEG
+  do:
+    ruleRefPEG(peg_WAXEYE_Ws)
 
 
 voidPEGRule(peg_WAXEYE_SComment):
@@ -561,7 +641,7 @@ leftPEGRule(peg_WAXEYE_Identifier):
         zeroOrMorePEG:
           {'a'..'z', 'A'..'Z', '0'..'9', '_', '-'}.terminalPEG          
   do:
-    ruleRefPEG(peg_WAXEYE_WS)
+    ruleRefPEG(peg_WAXEYE_Ws)
 
 
 voidPEGRule(peg_WAXEYE_Alt):
@@ -569,10 +649,6 @@ voidPEGRule(peg_WAXEYE_Alt):
     "|".terminalPEG
   do:
     ruleRefPEG(peg_WAXEYE_Ws)
-
-
-leftPEGRule(peg_WAXEYE_Hex):
-  discard
 
 
 leftPEGRule(peg_WAXEYE_Literal):
@@ -785,7 +861,7 @@ when isMainModule:
   # " /* -- /* --- */ -- */".withSimplePEG:
   #   echo SimplePEG.peg_WAXEYE_MComment
   # " /* -- /* --- */ -- */".withSimplePEG:
-  #   echo SimplePEG.peg_WAXEYE_WS
+  #   echo SimplePEG.peg_WAXEYE_Ws
   # "/* -- /* --- */ -- *".withSimplePEG:
   #   echo SimplePEG.peg_WAXEYE_MComment
   # "/* -- /* --- */ -- */".withSimplePEG:
