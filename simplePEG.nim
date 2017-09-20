@@ -517,44 +517,6 @@ leftPEGRule(peg_WAXEYE_Hex):
           ">".terminalPEG
 
 
-leftPEGRule(peg_WAXEYE_Range):
-  andPEG:
-    orPEG:
-      ruleRefPEG(peg_WAXEYE_Char)
-    do:
-      ruleRefPEG(peg_WAXEYE_Hex)
-  do:
-    optionPEG:
-      andPeg:
-        discardPEG:
-          "-".terminalPEG
-      do:
-        orPEG:
-          ruleRefPEG(peg_WAXEYE_Char)
-        do:
-          ruleRefPEG(peg_WAXEYE_Hex)
-
-
-leftPEGRule(peg_WAXEYE_CharClass):
-  andPEG:
-    discardPEG:
-      "[".terminalPEG
-  do:
-    andPEG:
-      zeroOrMorePEG:
-        andPEG:
-          notPEG:
-            "]".terminalPEG
-        do:
-          ruleRefPEG(peg_WAXEYE_Range)
-    do:
-      andPEG:
-        discardPEG:
-          "]".terminalPEG
-      do:
-        ruleRefPEG(peg_WAXEYE_Ws)
-
-
 leftPEGRule(peg_WAXEYE_Char):
   orPEG:
     andPEG:
@@ -575,6 +537,47 @@ leftPEGRule(peg_WAXEYE_Char):
             ruleRefPEG(peg_WAXEYE_EndOfLine)
         do:
           anyPEG
+
+
+leftPEGRule(peg_WAXEYE_Range):
+  andPEG:
+    orPEG:
+      ruleRefPEG(peg_WAXEYE_Char)
+    do:
+      ruleRefPEG(peg_WAXEYE_Hex)
+  do:
+    optionPEG:
+      andPeg:
+        discardPEG:
+          "-".terminalPEG
+      do:
+        orPEG:
+          ruleRefPEG(peg_WAXEYE_Char)
+        do:
+          ruleRefPEG(peg_WAXEYE_Hex)
+
+
+voidPEGRuleForward(peg_WAXEYE_Ws)
+
+
+leftPEGRule(peg_WAXEYE_CharClass):
+  andPEG:
+    discardPEG:
+      "[".terminalPEG
+  do:
+    andPEG:
+      zeroOrMorePEG:
+        andPEG:
+          notPEG:
+            "]".terminalPEG
+        do:
+          ruleRefPEG(peg_WAXEYE_Range)
+    do:
+      andPEG:
+        discardPEG:
+          "]".terminalPEG
+      do:
+        ruleRefPEG(peg_WAXEYE_Ws)
 
 
 leftPEGRule(peg_WAXEYE_WildCard):
@@ -631,13 +634,6 @@ voidPEGRule(peg_WAXEYE_Ws):
           ruleRefPEG(peg_WAXEYE_SComment)
         do:
           ruleRefPEG(peg_WAXEYE_MComment)
-
-
-leftPEGRule(peg_WAXEYE_Comma):
-  andPEG:
-    ",".terminalPEG
-  do:
-    ruleRefPEG(peg_WAXEYE_Ws)
 
 
 leftPEGRule(peg_WAXEYE_Identifier):
