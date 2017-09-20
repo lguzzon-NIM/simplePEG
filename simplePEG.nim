@@ -292,7 +292,16 @@ template prunePEGRule(aRuleName: untyped, aBody: untyped): untyped =
 
 template anyPEG: untyped =
   block anyPEG:
-    lResult = aSimplePEG.read(1, false).hasValue
+    let lAny = aSimplePEG.read(1, false)
+    when lResult is bool:
+      lResult = lAny.hasValue
+    else:
+      if lAny.hasValue:
+        lResult = Just(SimplePEGNodeObject(FIsTerminal: true,FSlice: lAny.value))
+        lStack.add(lResult.value)
+      else:
+        lResult = Nothing[SimplePEGNodeObject]()
+
 
 
 template pushStreamStatePEG = 
@@ -434,8 +443,7 @@ template terminalPEG(aExpectedValue: string | set[char]): untyped =
       when (aExpectedValue is string):
         let lTerminal = aSimplePEG.stringInString(aExpectedValue)
       else:
-        let lTerminal = aSimplePEG.charInChars(aExpectedValue)
-      
+        let lTerminal = aSimplePEG.charInChars(aExpectedValue)      
       if lTerminal.hasValue:
         lResult = Just(SimplePEGNodeObject(FIsTerminal: true,FSlice: lTerminal.value))
         lStack.add(lResult.value)
