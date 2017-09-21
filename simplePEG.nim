@@ -2,6 +2,8 @@
 import streams
 import strutils
 
+import SimpleAST
+
 import simplePEG.typeEx
 import simplePEG.strProcs
 import simplePEG.consts
@@ -10,9 +12,9 @@ type
   SimplePEGIndex = int
   SimplePEGLength = int
 
-  SimplePEG = ref SimplePEGObject not nil
+  SimplePEG = ref SimplePEGObject
   SimplePEGObject = object {. final .}
-    FStream: Stream not nil
+    FStream: Stream
 
   SimplePEGSliceObject = object {. final .}
     FSimplePEG: SimplePEG
@@ -29,22 +31,51 @@ type
       FName: string
       FItems: SimplePEGNodeObjectSeq
 
+  SimplePEGSliceObjectOption = Maybe[SimplePEGSliceObject]
+  SimplePEGNodeObjectOption = Maybe[SimplePEGNodeObject]
+  SimplePEGNode = SimplePEGNodeObject | SimplePEGNodeObjectOption
+  SimpleNodeBool = bool | SimplePEGNodeObjectOption
 
+
+proc asSimpleASTNode* (aSelf: SimplePEGNode): SimpleASTNodeRef =
+  when aSelf is SimplePEGNodeObject:
+    let lSelf = aSelf
+  else:
+    if not aSelf.hasValue:
+      return nil
+    let lSelf = aSelf.value      
+  if lSelf.FIsTerminal:
+    result = newSimpleASTNode(lSelf.FSlice.asString)
+  else:
+    if lSelf.FName.startsWith("$") and (lSelf.FItems.len > 0):
+      result = newSimpleASTNode(lSelf.FName.split("$",1)[1])
+    else:
+      result = newSimpleASTNode(lSelf.FName)
+      if (not result.isNil) and (not lSelf.FItems.isNil):
+        for lItem in lSelf.FItems:
+          let lChild = lItem.asSimpleASTNode
+          if not lChild.isNil:
+            discard result.addChild(lChild)
+          else:
+            return nil
+
+      
 proc asString* (aSimplePEGSlice: SimplePEGSliceObject): string =
   if aSimplePEGSlice.FAsString.hasValue:
     result = aSimplePEGSlice.FAsString.value
   else:
-    let lOldPosition = aSimplePEGSlice.FSimplePEG.FStream.getPosition
+    let lStream = aSimplePEGSlice.FSimplePEG.FStream
+    let lOldPosition = lStream.getPosition
     try:
-      aSimplePEGSlice.FSimplePEG.FStream.setPosition(aSimplePEGSlice.FIndex)
+      lStream.setPosition(aSimplePEGSlice.FIndex)
       let lLength = aSimplePEGSlice.FLength
-      let lString = aSimplePEGSlice.FSimplePEG.FStream.peekstr(lLength)
+      let lString = lStream.peekstr(lLength)
       if (lLength == lString.len):
         result = lString
       else:
         result = ""
     finally:
-      aSimplePEGSlice.FSimplePEG.FStream.setPosition(lOldPosition)
+      lStream.setPosition(lOldPosition)
 
 
 proc `$`(aSimplePEGNodeObject: SimplePEGNodeObject): string =
@@ -87,7 +118,7 @@ proc startIndex(aSelf: SimplePEGNodeObject): int =
       result = startIndex(lSelf.FItems[0])
 
 
-proc endIndex(aSelf: SimplePEGNodeObject | Maybe[SimplePEGNodeObject]): int =
+proc endIndex(aSelf: SimplePEGNode): int =
   when aSelf is SimplePEGNodeObject:
     let lSelf = aSelf
   else:
@@ -103,7 +134,7 @@ proc endIndex(aSelf: SimplePEGNodeObject | Maybe[SimplePEGNodeObject]): int =
       result = endIndex(lSelf.FItems[<lSelf.FItems.len])
 
 
-proc valuePEG (aSelf: SimplePEGNodeObject | Maybe[SimplePEGNodeObject]): string =
+proc valuePEG (aSelf: SimplePEGNode): string =
   when aSelf is SimplePEGNodeObject:
     let lSelf = aSelf
   else:
@@ -128,25 +159,26 @@ template withSimplePEG (aString: string; aBody: untyped) =
   block withSimplePEG:
     let lStream : Stream = newStringStream(aString)
     if not lStream.isNil:
-      let SimplePEG {.inject.} = SimplePEG(FStream:lStream)
+      let SimplePEG {.inject.} = SimplePEG(FStream: lStream)
       block withSimplePEGBody:
         aBody
 
 
-proc read* (aSimplePEG: SimplePEG, aLength: SimplePEGLength, aUsePeek: static[bool]): Maybe[SimplePEGSliceObject] =
-  if 1>aLength:
+proc read* (aSimplePEG: SimplePEG, aLength: SimplePEGLength, aUsePeek: static[bool]): SimplePEGSliceObjectOption =
+  if (1>aLength) or aSimplePEG.isNil:
     result = Nothing[SimplePEGSliceObject]()
   else:
     try:
-      let lBeginIndex = aSimplePEG.FStream.getPosition
+      let lStream = aSimplePEG.FStream
+      let lBeginIndex = lStream.getPosition
       when aUsePeek:
         defer:
-          aSimplePEG.FStream.setPosition(lBeginIndex)
+          lStream.setPosition(lBeginIndex)
       try:
         let lEndPosition = lBeginIndex + aLength
-        aSimplePEG.FStream.setPosition(lEndPosition)
-        if lEndPosition == aSimplePEG.FStream.getPosition:
-          result = Just(SimplePEGSliceObject(FSimplePEG:aSimplePEG, FIndex:lBeginIndex, FLength:aLength))
+        lStream.setPosition(lEndPosition)
+        if lEndPosition == lStream.getPosition:
+          result = Just(SimplePEGSliceObject(FSimplePEG: aSimplePEG, FIndex: lBeginIndex, FLength: aLength))
         else:
           result = Nothing[SimplePEGSliceObject]()
       except:
@@ -155,13 +187,13 @@ proc read* (aSimplePEG: SimplePEG, aLength: SimplePEGLength, aUsePeek: static[bo
       result = Nothing[SimplePEGSliceObject]()
 
 
-proc charInChars* (aSimplePEG: SimplePEG, aChars: string | set[char], aUsePeek: static[bool], aSaveAsString: static[bool]): Maybe[SimplePEGSliceObject] =
+proc charInChars* (aSimplePEG: SimplePEG, aChars: string | set[char], aUsePeek: static[bool], aSaveAsString: static[bool]): SimplePEGSliceObjectOption =
   var lRead = aSimplePEG.read(sizeof(char),aUsePeek)
   if lRead.hasValue:
     let lAsString = lRead.value.asString
     if lAsString[0] in aChars:
       when aSaveAsString:
-        lRead.value.FAsString = Just(lAsString)
+        lRead.value.FAsString =  Just(lAsString)
       result = Just(lRead.value)
     else:
       result = Nothing[SimplePEGSliceObject]()
@@ -169,23 +201,23 @@ proc charInChars* (aSimplePEG: SimplePEG, aChars: string | set[char], aUsePeek: 
     result = Nothing[SimplePEGSliceObject]()
 
 
-template charInChars* (aSimplePEG: SimplePEG, aChars: string | set[char]): Maybe[SimplePEGSliceObject] =
+template charInChars* (aSimplePEG: SimplePEG, aChars: string | set[char]): SimplePEGSliceObjectOption =
   aSimplePEG.charInChars(aChars, false, false)
 
 
-template charInCharsPeek* (aSimplePEG: SimplePEG, aChars: string | set[char]): Maybe[SimplePEGSliceObject] =
+template charInCharsPeek* (aSimplePEG: SimplePEG, aChars: string | set[char]): SimplePEGSliceObjectOption =
   aSimplePEG.charInChars(aChars, true, false)
 
 
-template charInCharsAsString* (aSimplePEG: SimplePEG, aChars: string | set[char]): Maybe[SimplePEGSliceObject] =
+template charInCharsAsString* (aSimplePEG: SimplePEG, aChars: string | set[char]): SimplePEGSliceObjectOption =
   aSimplePEG.charInChars(aChars, false, true)
 
 
-template charInCharsPeekAsString* (aSimplePEG: SimplePEG, aChars: string | set[char]): Maybe[SimplePEGSliceObject] =
+template charInCharsPeekAsString* (aSimplePEG: SimplePEG, aChars: string | set[char]): SimplePEGSliceObjectOption =
   aSimplePEG.charInChars(aChars, true, true)
 
 
-proc stringInString* (aSimplePEG: SimplePEG, aString: string, aCasesInsensitive: static[bool], aUsePeek: static[bool], aSaveAsString: static[bool]): Maybe[SimplePEGSliceObject] =
+proc stringInString* (aSimplePEG: SimplePEG, aString: string, aCasesInsensitive: static[bool], aUsePeek: static[bool], aSaveAsString: static[bool]): SimplePEGSliceObjectOption =
   let lLength = aString.len
   var lRead = aSimplePEG.read(lLength, aUsePeek)
   if lRead.hasValue:
@@ -200,35 +232,35 @@ proc stringInString* (aSimplePEG: SimplePEG, aString: string, aCasesInsensitive:
     result = lRead
 
 
-template stringInString* (aSimplePEG: SimplePEG, aString: string): Maybe[SimplePEGSliceObject] =
+template stringInString* (aSimplePEG: SimplePEG, aString: string): SimplePEGSliceObjectOption =
   aSimplePEG.stringInString(aString, false, false, false)
 
 
-template stringInStringNoCase* (aSimplePEG: SimplePEG, aString: string): Maybe[SimplePEGSliceObject] =
+template stringInStringNoCase* (aSimplePEG: SimplePEG, aString: string): SimplePEGSliceObjectOption =
   aSimplePEG.stringInString(aString, true, false, false)
 
 
-template stringInStringPeekCase* (aSimplePEG: SimplePEG, aString: string): Maybe[SimplePEGSliceObject] =
+template stringInStringPeekCase* (aSimplePEG: SimplePEG, aString: string): SimplePEGSliceObjectOption =
   aSimplePEG.stringInString(aString, false, true, false)
 
 
-template stringInStringPeekNoCase* (aSimplePEG: SimplePEG, aString: string): Maybe[SimplePEGSliceObject] =
+template stringInStringPeekNoCase* (aSimplePEG: SimplePEG, aString: string): SimplePEGSliceObjectOption =
   aSimplePEG.stringInString(aString, aString, true, true, false)
 
 
-template stringInStringAsString* (aSimplePEG: SimplePEG, aString: string): Maybe[SimplePEGSliceObject] =
+template stringInStringAsString* (aSimplePEG: SimplePEG, aString: string): SimplePEGSliceObjectOption =
   aSimplePEG.stringInString(aString, false, false, true)
 
 
-template stringInStringNoCaseAsString* (aSimplePEG: SimplePEG, aString: string): Maybe[SimplePEGSliceObject] =
+template stringInStringNoCaseAsString* (aSimplePEG: SimplePEG, aString: string): SimplePEGSliceObjectOption =
   aSimplePEG.stringInString(aString, true, false, true)
 
 
-template stringInStringPeekCaseAsString* (aSimplePEG: SimplePEG, aString: string): Maybe[SimplePEGSliceObject] =
+template stringInStringPeekCaseAsString* (aSimplePEG: SimplePEG, aString: string): SimplePEGSliceObjectOption =
   aSimplePEG.stringInString(aString, false, true, true)
 
 
-template stringInStringPeekNoCaseAsString* (aSimplePEG: SimplePEG, aString: string): Maybe[SimplePEGSliceObject] =
+template stringInStringPeekNoCaseAsString* (aSimplePEG: SimplePEG, aString: string): SimplePEGSliceObjectOption =
   aSimplePEG.stringInString(aString, aString, true, true, true)
 
 
@@ -243,18 +275,18 @@ template innerPEGRule(aRuleName, aParamName: untyped, atype: typedesc, aBody: un
     aBody
 
 
-template lResultIsTrue(aResult: bool | Maybe[SimplePEGNodeObject]): untyped =
+template lResultIsTrue(aResult: SimpleNodeBool): untyped =
   when aResult is bool:
     aResult
   else:
     aResult.hasValue
 
 template leftPEGRuleForward(aRuleName: untyped): untyped =
-  innerPEGRuleForward(aRuleName, aSimplePEG, Maybe[SimplePEGNodeObject])
+  innerPEGRuleForward(aRuleName, aSimplePEG, SimplePEGNodeObjectOption)
 
 
 template leftPEGRule(aRuleName: untyped, aBody: untyped): untyped =
-  innerPEGRule(aRuleName, aSimplePEG, Maybe[SimplePEGNodeObject]):
+  innerPEGRule(aRuleName, aSimplePEG, SimplePEGNodeObjectOption):
     var lStack {. inject .} = newSeqOfCap[SimplePEGNodeObject](8)
     var lResult {. inject .} = Nothing[SimplePEGNodeObject]()
     aBody
@@ -276,10 +308,10 @@ template voidPEGRule(aRuleName: untyped, aBody: untyped): untyped =
   
 
 template prunePEGRuleForward(aRuleName: untyped): untyped =
-  innerPEGRuleForward(aRuleName, aSimplePEG, Maybe[SimplePEGNodeObject])
+  innerPEGRuleForward(aRuleName, aSimplePEG, SimplePEGNodeObjectOption)
 
 template prunePEGRule(aRuleName: untyped, aBody: untyped): untyped =
-  innerPEGRule(aRuleName, aSimplePEG, Maybe[SimplePEGNodeObject]):
+  innerPEGRule(aRuleName, aSimplePEG, SimplePEGNodeObjectOption):
     var lStack {. inject .} = newSeqOfCap[SimplePEGNodeObject](8)
     var lResult {. inject .} = Nothing[SimplePEGNodeObject]()
     aBody
@@ -462,7 +494,7 @@ template stringOfPEG (aBody: untyped): untyped =
         for lItem in lStackLen .. <lStack.len:
           lItems.add(lStack[lItem])
         popStackStatePEG
-        lResult = Just(SimplePEGNodeObject(FIsTerminal: false, FName:"$", FItems:lItems))
+        lResult = Just(SimplePEGNodeObject(FIsTerminal: false, FName: "$", FItems: lItems))
         lResult.value.FName &= lResult.valuePEG
         lStack.add(lResult.value)
     else:
@@ -845,7 +877,59 @@ when isMainModule:
   echo getMessage()
   
   "a <- \"12\" b <: \"34\" \"56\"".withSimplePEG:
-    echo $SimplePEG.WAXEYE()
+    let lSimpleASTNode = SimplePEG.WAXEYE().asSimpleASTNode
+    if not lSimpleASTNode.isNil:
+      echo lSimpleASTNode.asASTStr
+
+  """
+WAXEYE      <- Ws *Definition
+Definition  <- Identifier Arrow Alternation Ws
+Alternation <- Sequence *( Alt Sequence )
+Sequence    <- +Unit
+Unit        <- ?Prefix
+                ( Identifier !Arrow
+                | Open Alternation Close
+                | Literal
+                | CaseLiteral
+                | CharClass
+                | WildCard )
+Prefix      <- [?*+:&!$] Ws
+Identifier  <- $( [a-zA-Z_] *[a-zA-Z0-9_-] ) Ws
+Literal     <- :['] $( +( !['] ( LChar 
+                                | Hex ) ) ) :['] Ws
+CaseLiteral <- :["] $( +( !["] ( LChar 
+                                | Hex ) ) ) :["] Ws
+LChar       <- '\\' [nrt'"\\] 
+              | !'\\' !EndOfLine .
+CharClass   <- :'[' *( !']' Range ) :']' Ws
+Range       <- ( Char | Hex ) ?( :'-' ( Char | Hex ) )
+Char        <- '\\' [nrt\-\]\\] 
+              | !'\\' !']' !EndOfLine .
+Hex         <- :'\\<' [0-9A-Fa-f] [0-9A-Fa-f] :'>'
+WildCard    <- :'.' Ws
+Arrow       <= LeftArrow 
+              | PruneArrow 
+              | VoidArrow
+LeftArrow   <- :'<-' Ws
+PruneArrow  <- :'<=' Ws
+VoidArrow   <- :'<:' Ws
+Alt         <: '|' Ws
+Open        <: '(' Ws
+Close       <: ')' Ws
+SComment    <: '#' *( !EndOfLine . ) ( EndOfLine 
+                                      | !. )
+MComment    <: '/*' *( MComment 
+                      | !'*/' . ) '*/'
+EndOfLine   <: '\r' ?'\n' 
+              | '\n'
+Ws          <: *( [ \t] 
+                | EndOfLine 
+                | SComment 
+                | MComment)
+""".withSimplePEG:
+    let lSimpleASTNode = SimplePEG.WAXEYE().asSimpleASTNode
+    if not lSimpleASTNode.isNil:
+      echo lSimpleASTNode.asASTStr
 
   # "abc_9-10_A   A".withSimplePEG:
   #   let a = SimplePEG.Identifier
