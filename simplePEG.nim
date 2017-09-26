@@ -615,12 +615,14 @@ voidPEGRule(SComment):
   andPEG:
     "#".terminalPEG
   do:
-    zeroOrMorePEG:
-      andPEG:
-        notPEG:
-          ruleRefPEG(EndOfLine)
-      do:
-        anyPeg
+    andPEG:
+      zeroOrMorePEG:
+        andPEG:
+          notPEG:
+            ruleRefPEG(EndOfLine)
+        do:
+          anyPeg
+    do:
       orPEG:
         ruleRefPEG(EndOfLine)
       do:
