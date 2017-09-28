@@ -12,7 +12,7 @@ import simplePEG.consts
 type
   SimplePEGIndex = int
   SimplePEGLength = int
-  
+
   SimplePEGSliceObject = object {. final .}
     FStream: Stream
     FIndex: SimplePEGIndex
@@ -40,7 +40,7 @@ proc asSimpleASTNode* (aSelf: SimplePEGNode): SimpleASTNodeRef =
   else:
     if not aSelf.hasValue:
       return nil
-    let lSelf = aSelf.value      
+    let lSelf = aSelf.value
   if lSelf.FIsTerminal:
     result = newSimpleASTNode(lSelf.FSlice.asString)
   else:
@@ -69,21 +69,21 @@ proc asString* (aSimplePEGSlice: SimplePEGSliceObject): string =
     let lString = lStream.readstr(lLength)
     if (lLength == lString.len):
       result = lString
-  
+
 
 proc `$`(aSimplePEGNodeObject: SimplePEGNodeObject): string =
-  
+
   proc innerEcho(aValue: SimplePEGNodeObject, aTabs: int): string =
     if aValue.FIsTerminal:
       result = ("""
-      
+
 Is Terminal
   Slice -> $1
   Slice AsString -> $2
       """ % [$aValue.FSlice, aValue.FSlice.asString()]).indent(aTabs)
     else:
       result = ("""
-      
+
 Is Not Terminal
   Name -> $1
   Items -> $2
@@ -91,7 +91,7 @@ Is Not Terminal
       let lTabs = aTabs + 1
       for lItem in aValue.FItems:
         result &= innerEcho(lItem, lTabs)
-  
+
   innerEcho(aSimplePEGNodeObject, 1)
 
 
@@ -101,7 +101,7 @@ proc startIndex(aSelf: SimplePEGNodeObject): int =
   else:
     if not aSelf.hasValue:
       return -1
-    let lSelf = aSelf.value      
+    let lSelf = aSelf.value
   if lSelf.FIsTerminal:
     result = lSelf.FSlice.FIndex
   else:
@@ -117,7 +117,7 @@ proc endIndex(aSelf: SimplePEGNode): int =
   else:
     if not aSelf.hasValue:
       return -1
-    let lSelf = aSelf.value      
+    let lSelf = aSelf.value
   if lSelf.FIsTerminal:
     result = lSelf.FSlice.FIndex + lSelf.FSlice.FLength - 1
   else:
@@ -133,7 +133,7 @@ proc valuePEG (aSelf: SimplePEGNode): string =
   else:
     if not aSelf.hasValue:
       return ""
-    let lSelf = aSelf.value      
+    let lSelf = aSelf.value
   if lSelf.FIsTerminal:
     result = lSelf.FSlice.asString
   else:
@@ -265,16 +265,56 @@ template innerPEGRule(aRuleName, aParamName: untyped, atype: typedesc, aBody: un
     aBody
 
 
-template lResultIsTrue(aResult: SimpleNodeBool): untyped =
+template isTrue(aResult: SimpleNodeBool): untyped =
   when aResult is bool:
     aResult
   else:
     aResult.hasValue
 
 
+template pushStreamStatePEG =
+  {. push warning[ShadowIdent]: off .}
+  let lPosition {. inject .} = aStream.getPosition
+  {. pop .}
+
+
+template popStreamStatePEG =
+  aStream.setPosition(lPosition)
+
+
+template pushStackStatePEG =
+  when not (lResult is bool):
+    {. push warning[ShadowIdent]: off .}
+    let lStackLen {. inject .} = lStack.len
+    {. pop .}
+
+
+template popStackStatePEG =
+  when not (lResult is bool):
+    lStack.setLen(lStackLen)
+
+
+template pushPEG =
+  pushStreamStatePEG
+  pushStackStatePEG
+
+
+template popPEG =
+  popStackStatePEG
+  popStreamStatePEG
+
+
+template showStackStatePEG =
+  when not (lResult is bool):
+    echo "\\/".repeat(40) & $lStack.len
+    for lItem in lStack:
+      echo $lItem
+    echo "/\\".repeat(40) & $lStack.len
+
+
 template leftPEGRuleForward(aRuleName: untyped): untyped =
   innerPEGRuleForward(aRuleName, aStream, SimplePEGNodeObjectOption)
-  
+
 
 template leftPEGRule(aRuleName: untyped, aBody: untyped): untyped =
   innerPEGRule(aRuleName, aStream, SimplePEGNodeObjectOption):
@@ -282,15 +322,15 @@ template leftPEGRule(aRuleName: untyped, aBody: untyped): untyped =
       var lStack {. inject .} = newSeqOfCap[SimplePEGNodeObject](8)
       var lResult {. inject .} = Nothing[SimplePEGNodeObject]()
       aBody
-      if lResultIsTrue(lResult):
+      if lResult.isTrue:
         result = Just(SimplePEGNodeObject(FIsTerminal: false, FName: astToStr(aRuleName), FItems: lStack))
       else:
         result = Nothing[SimplePEGNodeObject]()
-  
+
 
 template voidPEGRuleForward(aRuleName: untyped): untyped =
   innerPEGRuleForward(aRuleName, aStream, bool)
-  
+
 
 template voidPEGRule(aRuleName: untyped, aBody: untyped): untyped =
   innerPEGRule(aRuleName, aStream, bool):
@@ -298,7 +338,7 @@ template voidPEGRule(aRuleName: untyped, aBody: untyped): untyped =
       var lResult {. inject .} = false
       aBody
       result = lResult
-  
+
 
 template prunePEGRuleForward(aRuleName: untyped): untyped =
   innerPEGRuleForward(aRuleName, aStream, SimplePEGNodeObjectOption)
@@ -309,14 +349,14 @@ template prunePEGRule(aRuleName: untyped, aBody: untyped): untyped =
       var lStack {. inject .} = newSeqOfCap[SimplePEGNodeObject](8)
       var lResult {. inject .} = Nothing[SimplePEGNodeObject]()
       aBody
-      if lResultIsTrue(lResult):
+      if lResult.isTrue:
         if 1 == lStack.len:
           result = Just(lStack[0])
         else:
           result = Just(SimplePEGNodeObject(FIsTerminal: false, FName: astToStr(aRuleName), FItems: lStack))
       else:
         result = Nothing[SimplePEGNodeObject]()
-  
+
 
 template anyPEG: untyped =
   block anyPEG:
@@ -331,112 +371,102 @@ template anyPEG: untyped =
         lResult = Nothing[SimplePEGNodeObject]()
 
 
-template pushStreamStatePEG = 
-  {. push warning[ShadowIdent]: off .}
-  let lPosition {. inject .} = aStream.getPosition
-  {. pop .}
-  
-
-template popStreamStatePEG =
-  aStream.setPosition(lPosition)
+template voidPEG* (aBody: untyped): untyped =
+  block voidPEG:
+    pushStackStatePEG
+    aBody
+    popStackStatePEG
 
 
-template pushStackStatePEG = 
-  when not (lResult is bool):
-    {. push warning[ShadowIdent]: off .}
-    let lStackLen {. inject .} = lStack.len
-    {. pop .}
-  
-
-template popStackStatePEG =
-  when not (lResult is bool):
-    lStack.setLen(lStackLen)
-
-
-template pushPEG = 
-  pushStreamStatePEG
-  pushStackStatePEG
-
-
-template popPEG = 
-  popStackStatePEG
-  popStreamStatePEG
-
-
-template showStackStatePEG = 
-  when not (lResult is bool):
-    echo "\\/".repeat(40) & $lStack.len
-    for lItem in lStack:
-      echo $lItem
-    echo "/\\".repeat(40) & $lStack.len
-
-
-template zeroOrMorePEG(aBody: untyped): untyped =
-  block zeroOrMorePEG:
+template closurePEG* (aBody: untyped): untyped =
+  block closurePEG:
     while true:
       pushPEG
       aBody
-      if not lResultIsTrue(lResult):
+      if not lResult.isTrue:
         popPEG
         break
     when lResult is bool:
       lResult = true
     else:
-      lResult = Just(SimplePEGNodeObject(FIsTerminal: false, FName: "zeroOrMorePEG"))
+      lResult = Just(SimplePEGNodeObject(FIsTerminal: false, FName: "closurePEG"))
 
 
-template oneOrMorePEG(aBody: untyped): untyped =
-  block oneOrMorePEG:
+template plusPEG* (aBody: untyped): untyped =
+  block plusPEG:
     aBody
-    if lResultIsTrue(lResult):
-      zeroOrMorePEG:
+    if lResult.isTrue:
+      closurePEG:
         aBody
 
 
-template optionPEG(aBody: untyped): untyped =
-  block optionPEG:
+template optionalPEG* (aBody: untyped): untyped =
+  block optionalPEG:
     pushPEG
     aBody
-    if not lResultIsTrue(lResult):
+    if not lResult.isTrue:
       popPEG
       when lResult is bool:
         lResult = true
       else:
-        lResult = Just(SimplePEGNodeObject(FIsTerminal: false, FName: "optionPEG"))
+        lResult = Just(SimplePEGNodeObject(FIsTerminal: false, FName: "optionalPEG"))
 
 
-template orPEG(aBody, aOrBody: untyped): untyped =
-  block orPEG:
-    pushPEG
-    aBody
-    if not lResultIsTrue(lResult):
-      popPEG
-      aOrBody
-    
-
-template andPEG(aBody, aAndBody: untyped): untyped =
-  block andPEG:
-    aBody
-    if lResultIsTrue(lResult):
-      aAndBody
-
-
-template notPEG(aBody: untyped): untyped =
-  block notPEG:
+template checkPEG* (aBody: untyped): untyped =
+  block checkPEG:
     pushPEG
     aBody
     popPEG
+
+
+template notCheckPEG* (aBody: untyped): untyped =
+  block notCheckPEG:
+    checkPEG:
+      aBody
     when lResult is bool:
       lResult = not lResult
     else:
       if lResult.hasValue:
         lResult = Nothing[SimplePEGNodeObject]()
       else:
-        lResult = Just(SimplePEGNodeObject(FIsTerminal: false, FName: "notPEG"))
+        lResult = Just(SimplePEGNodeObject(FIsTerminal: false, FName: "notCheckPEG"))
 
 
-template ruleRefPEG(aRuleName: untyped): untyped =
-  block ruleRefPEG:
+template stringOfPEG* (aBody: untyped): untyped =
+  block stringOfPEG:
+    when not (lResult is bool):
+      pushStackStatePEG
+      aBody
+      if lResult.isTrue and (lStackLen < lStack.len):
+        var lItems: SimplePEGNodeObjectSeq = newSeqOfCap[SimplePEGNodeObject](lStack.len - lStackLen)
+        for lItem in lStackLen .. <lStack.len:
+          lItems.add(lStack[lItem])
+        popStackStatePEG
+        lResult = Just(SimplePEGNodeObject(FIsTerminal: false, FName: "$", FItems: lItems))
+        lResult.value.FName &= lResult.valuePEG
+        lStack.add(lResult.value)
+    else:
+      aBody
+
+
+template sequencePEG* (aBody, aAndBody: untyped): untyped =
+  block sequencePEG:
+    aBody
+    if lResult.isTrue:
+      aAndBody
+
+
+template alternationPEG* (aBody, aOrBody: untyped): untyped =
+  block alternationPEG:
+    pushPEG
+    aBody
+    if not lResult.isTrue:
+      popPEG
+      aOrBody
+
+
+template notTerminalPEG* (aRuleName: untyped): untyped =
+  block notTerminalPEG:
     let lRuleResult = aStream.aRuleName
     when lResult is bool:
       when lRuleResult is bool:
@@ -455,7 +485,7 @@ template ruleRefPEG(aRuleName: untyped): untyped =
           lStack.add(lResult.value)
 
 
-template terminalPEG(aExpectedValue: string | set[char]): untyped =
+template terminalPEG* (aExpectedValue: string | set[char]): untyped =
   block terminalPEG:
     when lResult is bool:
       when (aExpectedValue is string):
@@ -466,7 +496,7 @@ template terminalPEG(aExpectedValue: string | set[char]): untyped =
       when (aExpectedValue is string):
         let lTerminal = aStream.stringInString(aExpectedValue)
       else:
-        let lTerminal = aStream.charInChars(aExpectedValue)      
+        let lTerminal = aStream.charInChars(aExpectedValue)
       if lTerminal.hasValue:
         lResult = Just(SimplePEGNodeObject(FIsTerminal: true, FSlice: lTerminal.value))
         lStack.add(lResult.value)
@@ -474,394 +504,149 @@ template terminalPEG(aExpectedValue: string | set[char]): untyped =
         lResult = Nothing[SimplePEGNodeObject]()
 
 
-template stringOfPEG (aBody: untyped): untyped =
-  block stringOfPEG:
-    when not (lResult is bool):
-      pushStackStatePEG
-      aBody
-      if lResultIsTrue(lResult) and (lStackLen < lStack.len):
-        var lItems: SimplePEGNodeObjectSeq = newSeqOfCap[SimplePEGNodeObject](lStack.len - lStackLen)
-        for lItem in lStackLen .. <lStack.len:
-          lItems.add(lStack[lItem])
-        popStackStatePEG
-        lResult = Just(SimplePEGNodeObject(FIsTerminal: false, FName: "$", FItems: lItems))
-        lResult.value.FName &= lResult.valuePEG
-        lStack.add(lResult.value)
+template terminalNoCasePEG* (aExpectedValue: string): untyped =
+  block terminalPEG:
+    when lResult is bool:
+      lResult = aStream.stringInStringNoCase(aExpectedValue).hasValue
     else:
-      aBody
+      let lTerminal = aStream.stringInString(aExpectedValue)
+      if lTerminal.hasValue:
+        lResult = Just(SimplePEGNodeObject(FIsTerminal: true, FSlice: lTerminal.value))
+        lStack.add(lResult.value)
+      else:
+        lResult = Nothing[SimplePEGNodeObject]()
 
 
-template  discardPEG (aBody: untyped): untyped =
-  block discardPEG:
-    pushStackStatePEG
-    aBody
-    popStackStatePEG
-    
-
-voidPEGRule(EndOfLine):
-    orPEG:
-      andPEG:
-        {'\13'}.terminalPEG
-      do:
-        {'\10'}.terminalPEG
-    do:
-      {'\10'}.terminalPEG
+include simplePEG.GRMs.WAXEYE
 
 
-leftPEGRule(LChar):
-  orPEG:
-    andPEG:
-      "\\".terminalPEG
-    do:
-      {'n', 'r', 't', '\'', '"', '\\'}.terminalPEG
-  do:
-    andPEG:
-      notPEG:
-        "\\".terminalPEG
-    do:
-      andPEG:
-        notPEG:
-          ruleRefPEG(EndOfLine)
-      do:
-        anyPEG
+proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef, aSpaces: int = 0): string =
+  result = ""
+  if not aSimpleASTNodeRef.isNil:
+    var lSpaces = aSpaces
+    let lChildren = aSimpleASTNodeRef.children
+    if lChildren.isNil:
+      result = " ".repeat(lSpaces) & aSimpleASTNodeRef.name
+    else:
+      case aSimpleASTNodeRef.name
+      of "Definition":
+        result &= "\n"
+        case lChildren[1].name
+        of "LeftArrow":
+          result &= "leftPEGRule(" & lChildren[0].value & "):\n"
+        of "VoidArrow":
+          result &= "voidPEGRule(" & lChildren[0].value & "):\n"
+        of "PruneArrow":
+          result &= "prunePEGRule(" & lChildren[0].value & "):\n"
+        lSpaces += 2
+        for lIndex in 2..<lChildren.len:
+          result &= getWAXEYENim(lChildren[lIndex], lSpaces)
+        result &= "\n"
+      of "Alternation":
+        if lChildren.len > 1:
+          result &= " ".repeat(lSpaces) & "alternationPEG:\n"
+          result &= getWAXEYENim(lChildren[0], lSpaces + 2)
+          for lIndex in 1..<(lChildren.len-1):
+            result &= "\n"
+            result &= " ".repeat(lSpaces) & "do:\n"
+            lSpaces += 2
+            result &= " ".repeat(lSpaces) & "alternationPEG:\n"
+            result &= getWAXEYENim(lChildren[lIndex], lSpaces + 2)
 
+          result &= "\n"
+          result &= " ".repeat(lSpaces) & "do:\n"
+          result &= getWAXEYENim(lChildren[<lChildren.len], lSpaces + 2)
+        else:
+          result &= getWAXEYENim(lChildren[0], lSpaces)
+      of "Sequence":
+        if lChildren.len > 1:
+          result &= " ".repeat(lSpaces) & "sequencePEG:\n"
+          result &= getWAXEYENim(lChildren[0], lSpaces + 2)
+          for lIndex in 1..<(lChildren.len-1):
+            result &= "\n"
+            result &= " ".repeat(lSpaces) & "do:\n"
+            lSpaces += 2
+            result &= " ".repeat(lSpaces) & "sequencePEG:\n"
+            result &= getWAXEYENim(lChildren[lIndex], lSpaces + 2)
 
-leftPEGRule(Hex):
-  andPEG:
-    discardPEG:
-      "\\<".terminalPEG
-  do:
-    andPEG:
-      {'0'..'9', 'A'..'F', 'a'..'f'}.terminalPEG
-    do:
-      andPEG:
-        {'0'..'9', 'A'..'F', 'a'..'f'}.terminalPEG
-      do:
-        discardPEG:
-          ">".terminalPEG
-
-
-leftPEGRule(Char):
-  orPEG:
-    andPEG:
-      "\\".terminalPEG
-    do:
-      {'n', 'r', 't', '-', ']', '\\'}.terminalPEG
-  do:
-    andPEG:
-      notPEG:
-        "\\".terminalPEG
-    do:
-      andPEG:
-        notPEG:
-          "]".terminalPEG
-      do:
-        andPEG:
-          notPEG:
-            ruleRefPEG(EndOfLine)
-        do:
-          anyPEG
-
-
-leftPEGRule(Range):
-  andPEG:
-    orPEG:
-      ruleRefPEG(Char)
-    do:
-      ruleRefPEG(Hex)
-  do:
-    optionPEG:
-      andPeg:
-        discardPEG:
-          "-".terminalPEG
-      do:
-        orPEG:
-          ruleRefPEG(Char)
-        do:
-          ruleRefPEG(Hex)
-
-
-voidPEGRuleForward(Ws)
-
-
-leftPEGRule(CharClass):
-  andPEG:
-    discardPEG:
-      "[".terminalPEG
-  do:
-    andPEG:
-      zeroOrMorePEG:
-        andPEG:
-          notPEG:
-            "]".terminalPEG
-        do:
-          ruleRefPEG(Range)
-    do:
-      andPEG:
-        discardPEG:
-          "]".terminalPEG
-      do:
-        ruleRefPEG(Ws)
-
-
-leftPEGRule(WildCard):
-  andPEG:
-    ".".terminalPEG
-  do:
-    ruleRefPEG(Ws)
-
-
-voidPEGRule(SComment):
-  andPEG:
-    "#".terminalPEG
-  do:
-    andPEG:
-      zeroOrMorePEG:
-        andPEG:
-          notPEG:
-            ruleRefPEG(EndOfLine)
-        do:
-          anyPeg
-    do:
-      orPEG:
-        ruleRefPEG(EndOfLine)
-      do:
-        notPEG:
-          anyPeg
-
-
-voidPEGRule(MComment):
-  andPEG:
-    "/*".terminalPEG
-  do:
-    andPeg:
-      zeroOrMorePEG:
-        orPEG:
-          ruleRefPEG(MComment)
-        do:
-          andPEG:
-            notPEG:
-              "*/".terminalPEG
-          do:
-            anyPEG
-    do:
-      "*/".terminalPEG
-
-
-voidPEGRule(Ws):
-  zeroOrMorePEG:
-    orPEG:
-      {' ', '\t'}.terminalPEG
-    do:
-      orPEG:
-        ruleRefPEG(EndOfLine)
-      do:
-        orPEG:
-          ruleRefPEG(SComment)
-        do:
-          ruleRefPEG(MComment)
-
-
-leftPEGRule(Identifier):
-  andPEG:
-    stringOfPEG:
-      andPEG:
-        {'a'..'z', 'A'..'Z', '_'}.terminalPEG
-      do:
-        zeroOrMorePEG:
-          {'a'..'z', 'A'..'Z', '0'..'9', '_', '-'}.terminalPEG          
-  do:
-    ruleRefPEG(Ws)
-
-
-voidPEGRule(Alt):
-  andPeg:
-    "|".terminalPEG
-  do:
-    ruleRefPEG(Ws)
-
-
-leftPEGRule(Literal):
-  andPEG:
-    discardPEG:
-      "'".terminalPEG
-  do:
-    andPEG:
-      stringOfPEG:
-        oneOrMorePEG:
-          andPEG:
-            notPeg:
-              "'".terminalPEG
-          do:
-            orPEG:
-              ruleRefPEG(LChar)
-            do:
-              ruleRefPEG(Hex)
-
-    do:
-      andPEG:
-        discardPEG:
-          "'".terminalPEG
-      do:
-        ruleRefPEG(Ws)
-        
-
-leftPEGRule(CaseLiteral):
-  andPEG:
-    discardPEG:
-      "\"".terminalPEG
-  do:
-    andPEG:
-      stringOfPEG:
-        oneOrMorePEG:
-          andPEG:
-            notPeg:
-              "\"".terminalPEG
-          do:
-            orPEG:
-              ruleRefPEG(LChar)
-            do:
-              ruleRefPEG(Hex)
-
-    do:
-      andPEG:
-        discardPEG:
-          "\"".terminalPEG
-      do:
-        ruleRefPEG(Ws)
-
-
-voidPEGRule(Close):
-  andPEG:
-    ")".terminalPEG
-  do:
-    ruleRefPEG(Ws)
-
-
-voidPEGRule(Open):
-  andPEG:
-    "(".terminalPEG
-  do:
-    ruleRefPEG(Ws)
-
-
-leftPEGRule(Prefix):
-  andPEG:
-    {'?', '*', '+', ':', '&', '!', '$'}.terminalPEG
-  do:
-    ruleRefPEG(Ws)
-    
-
-prunePEGRuleForward(Arrow)
-leftPEGRuleForward(Alternation)
-  
-
-leftPEGRule(Unit):
-  andPEG:
-    optionPEG:
-      ruleRefPEG(Prefix)
-  do:
-    orPEG:
-      andPEG:
-        ruleRefPEG(Identifier)
-      do:
-        notPEG:
-          ruleRefPEG(Arrow)
-    do:
-      orPEG:
-        andPEG:
-          ruleRefPEG(Open)
-        do:
-          andPEG:
-            ruleRefPEG(Alternation)
-          do:
-            ruleRefPEG(Close)
-      do:
-        orPEG:
-          ruleRefPEG(Literal)
-        do:
-          orPEG:
-            ruleRefPEG(CaseLiteral)
-          do:
-            orPEG:
-              ruleRefPEG(CharClass)
-            do:
-              ruleRefPEG(WildCard)
-              
-
-leftPEGRule(Sequence):
-  oneOrMorePEG:
-    ruleRefPEG(Unit)
-
-
-leftPEGRule(Alternation):
-  andPEG:
-    ruleRefPEG(Sequence)
-  do:
-    zeroOrMorePEG:
-      andPEG:
-        ruleRefPEG(Alt)
-      do:
-        ruleRefPEG(Sequence)
-
-
-leftPEGRule(VoidArrow):
-  andPEG:
-    discardPEG:
-      "<:".terminalPEG
-  do:
-    ruleRefPEG(Ws)
-
-
-leftPEGRule(PruneArrow):
-  andPEG:
-    discardPEG:
-      "<=".terminalPEG
-  do:
-    ruleRefPEG(Ws)
-
-
-leftPEGRule(LeftArrow):
-  andPEG:
-    discardPEG:
-      "<-".terminalPEG
-  do:
-    ruleRefPEG(Ws)
-
-
-prunePEGRule(Arrow):
-  orPEG:
-    ruleRefPEG(LeftArrow)
-  do:
-    orPEG:
-      ruleRefPEG(PruneArrow)
-    do:
-      ruleRefPEG(VoidArrow)
-
-
-leftPEGRule(Definition):
-  andPEG:
-    ruleRefPEG(Identifier)
-  do:
-    andPEG:
-      ruleRefPEG(Arrow)
-    do:
-      andPEG:
-        ruleRefPEG(Alternation)
-      do:
-        ruleRefPEG(Ws)
-
-
-leftPEGRule(WAXEYE):
-  andPEG:
-      ruleRefPEG(Ws)
-  do:
-    zeroOrMorePEG do:
-      ruleRefPEG(Definition)
-
+          result &= "\n"
+          result &= " ".repeat(lSpaces) & "do:\n"
+          result &= getWAXEYENim(lChildren[<lChildren.len], lSpaces + 2)
+        else:
+          result &= getWAXEYENim(lChildren[0], lSpaces)
+      of "Unit":
+        var lStartIndex = 0
+        if lChildren[0].name == "Prefix":
+          lStartIndex = 1
+          case lChildren[0].children[0].name
+          of "?":
+            result &= " ".repeat(lSpaces) & "optionalPEG:\n"
+          of "*":
+            result &= " ".repeat(lSpaces) & "closurePEG:\n"
+          of "+":
+            result &= " ".repeat(lSpaces) & "plusPEG:\n"
+          of ":":
+            result &= " ".repeat(lSpaces) & "voidPEG:\n"
+          of "&":
+            result &= " ".repeat(lSpaces) & "checkPEG:\n"
+          of "!":
+            result &= " ".repeat(lSpaces) & "notCheckPEG:\n"
+          of "$":
+            result &= " ".repeat(lSpaces) & "stringOfPEG:\n"
+          lSpaces += 2
+        for lIndex in lStartIndex..<lChildren.len:
+          result &= getWAXEYENim(lChildren[lIndex], lSpaces)
+      of "WildCard":
+        result &= " ".repeat(lSpaces) & "anyPEG"
+      of "Literal":
+        result &= " ".repeat(lSpaces) & "\"" & aSimpleASTNodeRef.value & "\".terminalPEG"
+      of "CaseLiteral":
+        result &= " ".repeat(lSpaces) & "\"" & aSimpleASTNodeRef.value & "\".terminalNoCasePEG"
+      of "Char":
+        let lValue = aSimpleASTNodeRef.value
+        result = lValue
+        if lValue[0] == '\\':
+          case lValue[1]
+          of 'n':
+            result = "\\x0A"
+          of 'r':
+            result = "\\x0D"
+          of '-':
+            result = "-"
+          of ']':
+            result = "]"
+          else:
+            discard
+      of "Hex":
+        result &= "\\x" & aSimpleASTNodeRef.value.toUpperAscii
+      of "Range":
+        if lChildren.len == 1:
+          result &= "'" & getWAXEYENim(lChildren[0]) & "'"
+        else:
+          result &= "'" & getWAXEYENim(lChildren[0]) & "'..'" & getWAXEYENim(lChildren[1]) & "'"
+      of "CharClass":
+        result &= " ".repeat(lSpaces) & "{"
+        var lAdd = false
+        for lChild in lChildren:
+          if lAdd:
+            result &= ", "
+          else:
+            lAdd = true
+          result &= getWAXEYENim(lChild, lSpaces)
+        result &= "}.terminalPEG"
+      of "Identifier":
+        result = aSimpleASTNodeRef.value
+        let lParent = aSimpleASTNodeRef.parent
+        if not(lParent.isNil):
+          if lParent.name == "Unit":
+            result = " ".repeat(lSpaces) & result & ".notTerminalPEG"
+      else:
+        for lChild in lChildren:
+          result &= getWAXEYENim(lChild, lSpaces)
+      
 
 when isMainModule:
-  const 
+  const
     WAXEYE_GRAMMAR_WAXEYE = """
 WAXEYE      <- Ws *Definition
 Definition  <- Identifier Arrow Alternation Ws
@@ -876,20 +661,20 @@ Unit        <- ?Prefix
               | WildCard )
 Prefix      <- [?*+:&!$] Ws
 Identifier  <- $( [a-zA-Z_] *[a-zA-Z0-9_-] ) Ws
-Literal     <- :['] $( +( !['] ( LChar 
+Literal     <- :['] $( +( !['] ( LChar
                               | Hex ) ) ) :['] Ws
-CaseLiteral <- :["] $( +( !["] ( LChar 
+CaseLiteral <- :["] $( +( !["] ( LChar
                               | Hex ) ) ) :["] Ws
-LChar       <- '\\' [nrt'"\\] 
+LChar       <- '\\' [nrt'"\\]
             | !'\\' !EndOfLine .
 CharClass   <- :'[' *( !']' Range ) :']' Ws
 Range       <- ( Char | Hex ) ?( :'-' ( Char | Hex ) )
-Char        <- '\\' [nrt\-\]\\] 
+Char        <- '\\' [nrt\-\]\\]
             | !'\\' !']' !EndOfLine .
 Hex         <- :'\\<' [0-9A-Fa-f] [0-9A-Fa-f] :'>'
 WildCard    <- :'.' Ws
-Arrow       <= LeftArrow 
-            | PruneArrow 
+Arrow       <= LeftArrow
+            | PruneArrow
             | VoidArrow
 LeftArrow   <- :'<-' Ws
 PruneArrow  <- :'<=' Ws
@@ -897,28 +682,30 @@ VoidArrow   <- :'<:' Ws
 Alt         <: '|' Ws
 Open        <: '(' Ws
 Close       <: ')' Ws
-SComment    <: '#' *( !EndOfLine . ) ( EndOfLine 
+SComment    <: '#' *( !EndOfLine . ) ( EndOfLine
                                     | !. )
-MComment    <: '/*' *( MComment 
+MComment    <: '/*' *( MComment
                     | !'*/' . ) '*/'
-EndOfLine   <: '\r' ?'\n' 
+EndOfLine   <: '\r' ?'\n'
             | '\n'
-Ws          <: *( [ \t] 
-              | EndOfLine 
-              | SComment 
-              | MComment)"""
-              
-  proc mainModule = 
-    "a <- \"12\" b <: \"34\" \"56\"".withStream(lStream):
-      let lSimpleASTNode = lStream.WAXEYE().asSimpleASTNode
-      if not lSimpleASTNode.isNil:
-        echo lSimpleASTNode.asASTStr
+Ws          <: *( [ \t]
+              | EndOfLine
+              | SComment
+              | MComment)
+test <- [\<87>-\<Ab>,\t] """
+
+  proc mainModule =
+    # "a <- \"12\" b <: \"34\" \"56\"".withStream(lStream):
+    #   let lSimpleASTNode = lStream.WAXEYE().asSimpleASTNode
+    #   if not lSimpleASTNode.isNil:
+    #     echo lSimpleASTNode.asASTStr
 
     WAXEYE_GRAMMAR_WAXEYE.withStream(lStream):
       let lSimpleASTNode = lStream.WAXEYE().asSimpleASTNode
       if not lSimpleASTNode.isNil:
         echo lSimpleASTNode.asASTStr
-  
+        echo lSimpleASTNode.getWAXEYENim
+
   mainModule()
 
 #nim --putenv:NIM_VERBOSITY=3 cBuild release 2> log.txt
