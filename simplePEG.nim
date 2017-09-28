@@ -617,6 +617,12 @@ proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef, aSpaces: int = 0): strin
             result = "]"
           else:
             discard
+        else:
+          case lValue[0]
+          of '\'':
+            result = "\\'"
+          else:
+            discard
       of "Hex":
         result &= "\\x" & aSimpleASTNodeRef.value.toUpperAscii
       of "Range":
