@@ -1,14 +1,171 @@
-voidPEGRule(EndOfLine):
-  alternationPEG:
-    sequencePEG:
-      {'\13'}.terminalPEG
-    do:
-      {'\10'}.terminalPEG
+
+leftDefinitionPEGForward(WAXEYE)
+leftDefinitionPEGForward(Definition)
+leftDefinitionPEGForward(Alternation)
+leftDefinitionPEGForward(Sequence)
+leftDefinitionPEGForward(Unit)
+leftDefinitionPEGForward(Prefix)
+leftDefinitionPEGForward(Identifier)
+leftDefinitionPEGForward(Literal)
+leftDefinitionPEGForward(CaseLiteral)
+leftDefinitionPEGForward(LChar)
+leftDefinitionPEGForward(CharClass)
+leftDefinitionPEGForward(Range)
+leftDefinitionPEGForward(Char)
+leftDefinitionPEGForward(Hex)
+leftDefinitionPEGForward(WildCard)
+pruneDefinitionPEGForward(Arrow)
+leftDefinitionPEGForward(LeftArrow)
+leftDefinitionPEGForward(PruneArrow)
+leftDefinitionPEGForward(VoidArrow)
+voidDefinitionPEGForward(Alt)
+voidDefinitionPEGForward(Open)
+voidDefinitionPEGForward(Close)
+voidDefinitionPEGForward(SComment)
+voidDefinitionPEGForward(MComment)
+voidDefinitionPEGForward(EndOfLine)
+voidDefinitionPEGForward(Ws)
+
+
+
+leftDefinitionPEG(WAXEYE):
+  sequencePEG:
+    Ws.notTerminalPEG
   do:
-    {'\10'}.terminalPEG
+    closurePEG:
+      Definition.notTerminalPEG
 
 
-leftPEGRule(LChar):
+leftDefinitionPEG(Definition):
+  sequencePEG:
+    Identifier.notTerminalPEG
+  do:
+    sequencePEG:
+      Arrow.notTerminalPEG
+    do:
+      sequencePEG:
+        Alternation.notTerminalPEG
+      do:
+        Ws.notTerminalPEG
+
+
+leftDefinitionPEG(Alternation):
+  sequencePEG:
+    Sequence.notTerminalPEG
+  do:
+    closurePEG:
+      sequencePEG:
+        Alt.notTerminalPEG
+      do:
+        Sequence.notTerminalPEG
+
+
+leftDefinitionPEG(Sequence):
+  plusPEG:
+    Unit.notTerminalPEG
+
+
+leftDefinitionPEG(Unit):
+  sequencePEG:
+    optionalPEG:
+      Prefix.notTerminalPEG
+  do:
+    alternationPEG:
+      sequencePEG:
+        Identifier.notTerminalPEG
+      do:
+        notCheckPEG:
+          Arrow.notTerminalPEG
+    do:
+      alternationPEG:
+        sequencePEG:
+          Open.notTerminalPEG
+        do:
+          sequencePEG:
+            Alternation.notTerminalPEG
+          do:
+            Close.notTerminalPEG
+      do:
+        alternationPEG:
+          Literal.notTerminalPEG
+        do:
+          alternationPEG:
+            CaseLiteral.notTerminalPEG
+          do:
+            alternationPEG:
+              CharClass.notTerminalPEG
+            do:
+              WildCard.notTerminalPEG
+
+
+leftDefinitionPEG(Prefix):
+  sequencePEG:
+    {'?', '*', '+', ':', '&', '!', '$'}.terminalPEG
+  do:
+    Ws.notTerminalPEG
+
+
+leftDefinitionPEG(Identifier):
+  sequencePEG:
+    stringOfPEG:
+      sequencePEG:
+        {'a'..'z', 'A'..'Z', '_'}.terminalPEG
+      do:
+        closurePEG:
+          {'a'..'z', 'A'..'Z', '0'..'9', '_', '-'}.terminalPEG
+  do:
+    Ws.notTerminalPEG
+
+
+leftDefinitionPEG(Literal):
+  sequencePEG:
+    voidPEG:
+      {'\''}.terminalPEG
+  do:
+    sequencePEG:
+      stringOfPEG:
+        plusPEG:
+          sequencePEG:
+            notCheckPEG:
+              {'\''}.terminalPEG
+          do:
+            alternationPEG:
+              LChar.notTerminalPEG
+            do:
+              Hex.notTerminalPEG
+    do:
+      sequencePEG:
+        voidPEG:
+          {'\''}.terminalPEG
+      do:
+        Ws.notTerminalPEG
+
+
+leftDefinitionPEG(CaseLiteral):
+  sequencePEG:
+    voidPEG:
+      {'"'}.terminalPEG
+  do:
+    sequencePEG:
+      stringOfPEG:
+        plusPEG:
+          sequencePEG:
+            notCheckPEG:
+              {'"'}.terminalPEG
+          do:
+            alternationPEG:
+              LChar.notTerminalPEG
+            do:
+              Hex.notTerminalPEG
+    do:
+      sequencePEG:
+        voidPEG:
+          {'"'}.terminalPEG
+      do:
+        Ws.notTerminalPEG
+
+
+leftDefinitionPEG(LChar):
   alternationPEG:
     sequencePEG:
       "\\".terminalPEG
@@ -26,22 +183,45 @@ leftPEGRule(LChar):
         anyPEG
 
 
-leftPEGRule(Hex):
+leftDefinitionPEG(CharClass):
   sequencePEG:
     voidPEG:
-      "\\<".terminalPEG
+      "[".terminalPEG
   do:
     sequencePEG:
-      {'0'..'9', 'A'..'F', 'a'..'f'}.terminalPEG
+      closurePEG:
+        sequencePEG:
+          notCheckPEG:
+            "]".terminalPEG
+        do:
+          Range.notTerminalPEG
     do:
       sequencePEG:
-        {'0'..'9', 'A'..'F', 'a'..'f'}.terminalPEG
-      do:
         voidPEG:
-          ">".terminalPEG
+          "]".terminalPEG
+      do:
+        Ws.notTerminalPEG
 
 
-leftPEGRule(Char):
+leftDefinitionPEG(Range):
+  sequencePEG:
+    alternationPEG:
+      Char.notTerminalPEG
+    do:
+      Hex.notTerminalPEG
+  do:
+    optionalPEG:
+      sequencePEG:
+        voidPEG:
+          "-".terminalPEG
+      do:
+        alternationPEG:
+          Char.notTerminalPEG
+        do:
+          Hex.notTerminalPEG
+
+
+leftDefinitionPEG(Char):
   alternationPEG:
     sequencePEG:
       "\\".terminalPEG
@@ -58,60 +238,90 @@ leftPEGRule(Char):
       do:
         sequencePEG:
           notCheckPEG:
-            notTerminalPEG(EndOfLine)
+            EndOfLine.notTerminalPEG
         do:
           anyPEG
 
 
-leftPEGRule(Range):
-  sequencePEG:
-    alternationPEG:
-      notTerminalPEG(Char)
-    do:
-      notTerminalPEG(Hex)
-  do:
-    optionalPEG:
-      sequencePeg:
-        voidPEG:
-          "-".terminalPEG
-      do:
-        alternationPEG:
-          notTerminalPEG(Char)
-        do:
-          notTerminalPEG(Hex)
-
-
-voidPEGRuleForward(Ws)
-
-
-leftPEGRule(CharClass):
+leftDefinitionPEG(Hex):
   sequencePEG:
     voidPEG:
-      "[".terminalPEG
+      "\\<".terminalPEG
   do:
     sequencePEG:
-      closurePEG:
-        sequencePEG:
-          notCheckPEG:
-            "]".terminalPEG
-        do:
-          notTerminalPEG(Range)
+      {'0'..'9', 'A'..'F', 'a'..'f'}.terminalPEG
     do:
       sequencePEG:
-        voidPEG:
-          "]".terminalPEG
+        {'0'..'9', 'A'..'F', 'a'..'f'}.terminalPEG
       do:
-        notTerminalPEG(Ws)
+        voidPEG:
+          ">".terminalPEG
 
 
-leftPEGRule(WildCard):
+leftDefinitionPEG(WildCard):
   sequencePEG:
-    ".".terminalPEG
+    voidPEG:
+      ".".terminalPEG
   do:
-    notTerminalPEG(Ws)
+    Ws.notTerminalPEG
 
 
-voidPEGRule(SComment):
+pruneDefinitionPEG(Arrow):
+  alternationPEG:
+    LeftArrow.notTerminalPEG
+  do:
+    alternationPEG:
+      PruneArrow.notTerminalPEG
+    do:
+      VoidArrow.notTerminalPEG
+
+
+leftDefinitionPEG(LeftArrow):
+  sequencePEG:
+    voidPEG:
+      "<-".terminalPEG
+  do:
+    Ws.notTerminalPEG
+
+
+leftDefinitionPEG(PruneArrow):
+  sequencePEG:
+    voidPEG:
+      "<=".terminalPEG
+  do:
+    Ws.notTerminalPEG
+
+
+leftDefinitionPEG(VoidArrow):
+  sequencePEG:
+    voidPEG:
+      "<:".terminalPEG
+  do:
+    Ws.notTerminalPEG
+
+
+voidDefinitionPEG(Alt):
+  sequencePEG:
+    "|".terminalPEG
+  do:
+    Ws.notTerminalPEG
+
+
+voidDefinitionPEG(Open):
+  sequencePEG:
+    "(".terminalPEG
+  do:
+    Ws.notTerminalPEG
+
+
+voidDefinitionPEG(Close):
+  sequencePEG:
+    ")".terminalPEG
+  do:
+    Ws.notTerminalPEG
+
+
+voidDefinitionPEG(SComment):
   sequencePEG:
     "#".terminalPEG
   do:
@@ -119,25 +329,25 @@ voidPEGRule(SComment):
       closurePEG:
         sequencePEG:
           notCheckPEG:
-            notTerminalPEG(EndOfLine)
+            EndOfLine.notTerminalPEG
         do:
-          anyPeg
+          anyPEG
     do:
       alternationPEG:
-        notTerminalPEG(EndOfLine)
+        EndOfLine.notTerminalPEG
       do:
         notCheckPEG:
-          anyPeg
+          anyPEG
 
 
-voidPEGRule(MComment):
+voidDefinitionPEG(MComment):
   sequencePEG:
     "/*".terminalPEG
   do:
-    sequencePeg:
+    sequencePEG:
       closurePEG:
         alternationPEG:
-          notTerminalPEG(MComment)
+          MComment.notTerminalPEG
         do:
           sequencePEG:
             notCheckPEG:
@@ -148,215 +358,27 @@ voidPEGRule(MComment):
       "*/".terminalPEG
 
 
-voidPEGRule(Ws):
+voidDefinitionPEG(EndOfLine):
+  alternationPEG:
+    sequencePEG:
+      "\x0D".terminalPEG
+    do:
+      optionalPEG:
+        "\x0A".terminalPEG
+  do:
+    "\x0A".terminalPEG
+
+
+voidDefinitionPEG(Ws):
   closurePEG:
     alternationPEG:
       {' ', '\t'}.terminalPEG
     do:
       alternationPEG:
-        notTerminalPEG(EndOfLine)
+        EndOfLine.notTerminalPEG
       do:
         alternationPEG:
-          notTerminalPEG(SComment)
+          SComment.notTerminalPEG
         do:
-          notTerminalPEG(MComment)
-
-
-leftPEGRule(Identifier):
-  sequencePEG:
-    stringOfPEG:
-      sequencePEG:
-        {'a'..'z', 'A'..'Z', '_'}.terminalPEG
-      do:
-        closurePEG:
-          {'a'..'z', 'A'..'Z', '0'..'9', '_', '-'}.terminalPEG          
-  do:
-    notTerminalPEG(Ws)
-
-
-voidPEGRule(Alt):
-  sequencePeg:
-    "|".terminalPEG
-  do:
-    notTerminalPEG(Ws)
-
-
-leftPEGRule(Literal):
-  sequencePEG:
-    voidPEG:
-      "'".terminalPEG
-  do:
-    sequencePEG:
-      stringOfPEG:
-        plusPEG:
-          sequencePEG:
-            notCheckPeg:
-              "'".terminalPEG
-          do:
-            alternationPEG:
-              notTerminalPEG(LChar)
-            do:
-              notTerminalPEG(Hex)
-
-    do:
-      sequencePEG:
-        voidPEG:
-          "'".terminalPEG
-      do:
-        notTerminalPEG(Ws)
-        
-
-leftPEGRule(CaseLiteral):
-  sequencePEG:
-    voidPEG:
-      "\"".terminalPEG
-  do:
-    sequencePEG:
-      stringOfPEG:
-        plusPEG:
-          sequencePEG:
-            notCheckPeg:
-              "\"".terminalPEG
-          do:
-            alternationPEG:
-              notTerminalPEG(LChar)
-            do:
-              notTerminalPEG(Hex)
-
-    do:
-      sequencePEG:
-        voidPEG:
-          "\"".terminalPEG
-      do:
-        notTerminalPEG(Ws)
-
-
-voidPEGRule(Close):
-  sequencePEG:
-    ")".terminalPEG
-  do:
-    notTerminalPEG(Ws)
-
-
-voidPEGRule(Open):
-  sequencePEG:
-    "(".terminalPEG
-  do:
-    notTerminalPEG(Ws)
-
-
-leftPEGRule(Prefix):
-  sequencePEG:
-    {'?', '*', '+', ':', '&', '!', '$'}.terminalPEG
-  do:
-    notTerminalPEG(Ws)
-    
-
-prunePEGRuleForward(Arrow)
-leftPEGRuleForward(Alternation)
-  
-
-leftPEGRule(Unit):
-  sequencePEG:
-    optionalPEG:
-      notTerminalPEG(Prefix)
-  do:
-    alternationPEG:
-      sequencePEG:
-        notTerminalPEG(Identifier)
-      do:
-        notCheckPEG:
-          notTerminalPEG(Arrow)
-    do:
-      alternationPEG:
-        sequencePEG:
-          notTerminalPEG(Open)
-        do:
-          sequencePEG:
-            notTerminalPEG(Alternation)
-          do:
-            notTerminalPEG(Close)
-      do:
-        alternationPEG:
-          notTerminalPEG(Literal)
-        do:
-          alternationPEG:
-            notTerminalPEG(CaseLiteral)
-          do:
-            alternationPEG:
-              notTerminalPEG(CharClass)
-            do:
-              notTerminalPEG(WildCard)
-              
-
-leftPEGRule(Sequence):
-  plusPEG:
-    notTerminalPEG(Unit)
-
-
-leftPEGRule(Alternation):
-  sequencePEG:
-    notTerminalPEG(Sequence)
-  do:
-    closurePEG:
-      sequencePEG:
-        notTerminalPEG(Alt)
-      do:
-        notTerminalPEG(Sequence)
-
-
-leftPEGRule(VoidArrow):
-  sequencePEG:
-    voidPEG:
-      "<:".terminalPEG
-  do:
-    notTerminalPEG(Ws)
-
-
-leftPEGRule(PruneArrow):
-  sequencePEG:
-    voidPEG:
-      "<=".terminalPEG
-  do:
-    notTerminalPEG(Ws)
-
-
-leftPEGRule(LeftArrow):
-  sequencePEG:
-    voidPEG:
-      "<-".terminalPEG
-  do:
-    notTerminalPEG(Ws)
-
-
-prunePEGRule(Arrow):
-  alternationPEG:
-    notTerminalPEG(LeftArrow)
-  do:
-    alternationPEG:
-      notTerminalPEG(PruneArrow)
-    do:
-      notTerminalPEG(VoidArrow)
-
-
-leftPEGRule(Definition):
-  sequencePEG:
-    notTerminalPEG(Identifier)
-  do:
-    sequencePEG:
-      notTerminalPEG(Arrow)
-    do:
-      sequencePEG:
-        notTerminalPEG(Alternation)
-      do:
-        notTerminalPEG(Ws)
-
-
-leftPEGRule(WAXEYE):
-  sequencePEG:
-      notTerminalPEG(Ws)
-  do:
-    closurePEG do:
-      notTerminalPEG(Definition)
-
+          MComment.notTerminalPEG
 

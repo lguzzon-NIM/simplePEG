@@ -256,11 +256,11 @@ template stringInStringPeekNoCaseAsString* (aStream: Stream, aString: string): S
   aStream.stringInString(aString, aString, true, true, true)
 
 
-template innerPEGRuleForward(aRuleName, aParamName: untyped, atype: typedesc) =
+template innerDefinitionPEGForward(aRuleName, aParamName: untyped, atype: typedesc) =
   proc aRuleName* (aParamName: Stream): atype {. gcsafe .} #Compiler her does not "inject" aParamName correctly
 
 
-template innerPEGRule(aRuleName, aParamName: untyped, atype: typedesc, aBody: untyped) =
+template innerDefinitionPEG(aRuleName, aParamName: untyped, atype: typedesc, aBody: untyped) =
   proc aRuleName* (aParamName: Stream): atype {. gcsafe .} = #Compiler her does not "inject" aParamName correctly
     aBody
 
@@ -312,13 +312,13 @@ template showStackStatePEG =
     echo "/\\".repeat(40) & $lStack.len
 
 
-template leftPEGRuleForward(aRuleName: untyped): untyped =
-  innerPEGRuleForward(aRuleName, aStream, SimplePEGNodeObjectOption)
+template leftDefinitionPEGForward(aRuleName: untyped): untyped =
+  innerDefinitionPEGForward(aRuleName, aStream, SimplePEGNodeObjectOption)
 
 
-template leftPEGRule(aRuleName: untyped, aBody: untyped): untyped =
-  innerPEGRule(aRuleName, aStream, SimplePEGNodeObjectOption):
-    block leftPEGRule:
+template leftDefinitionPEG(aRuleName: untyped, aBody: untyped): untyped =
+  innerDefinitionPEG(aRuleName, aStream, SimplePEGNodeObjectOption):
+    block leftDefinitionPEG:
       var lStack {. inject .} = newSeqOfCap[SimplePEGNodeObject](8)
       var lResult {. inject .} = Nothing[SimplePEGNodeObject]()
       aBody
@@ -328,24 +328,24 @@ template leftPEGRule(aRuleName: untyped, aBody: untyped): untyped =
         result = Nothing[SimplePEGNodeObject]()
 
 
-template voidPEGRuleForward(aRuleName: untyped): untyped =
-  innerPEGRuleForward(aRuleName, aStream, bool)
+template voidDefinitionPEGForward(aRuleName: untyped): untyped =
+  innerDefinitionPEGForward(aRuleName, aStream, bool)
 
 
-template voidPEGRule(aRuleName: untyped, aBody: untyped): untyped =
-  innerPEGRule(aRuleName, aStream, bool):
-    block voidPEGRule:
+template voidDefinitionPEG(aRuleName: untyped, aBody: untyped): untyped =
+  innerDefinitionPEG(aRuleName, aStream, bool):
+    block voidDefinitionPEG:
       var lResult {. inject .} = false
       aBody
       result = lResult
 
 
-template prunePEGRuleForward(aRuleName: untyped): untyped =
-  innerPEGRuleForward(aRuleName, aStream, SimplePEGNodeObjectOption)
+template pruneDefinitionPEGForward(aRuleName: untyped): untyped =
+  innerDefinitionPEGForward(aRuleName, aStream, SimplePEGNodeObjectOption)
 
-template prunePEGRule(aRuleName: untyped, aBody: untyped): untyped =
-  innerPEGRule(aRuleName, aStream, SimplePEGNodeObjectOption):
-    block prunePEGRule:
+template pruneDefinitionPEG(aRuleName: untyped, aBody: untyped): untyped =
+  innerDefinitionPEG(aRuleName, aStream, SimplePEGNodeObjectOption):
+    block pruneDefinitionPEG:
       var lStack {. inject .} = newSeqOfCap[SimplePEGNodeObject](8)
       var lResult {. inject .} = Nothing[SimplePEGNodeObject]()
       aBody
@@ -520,60 +520,60 @@ template terminalNoCasePEG* (aExpectedValue: string): untyped =
 include simplePEG.GRMs.WAXEYE
 
 
-proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef, aSpaces: int = 0): string =
-  result = ""
-  if not aSimpleASTNodeRef.isNil:
-    var lSpaces = aSpaces
-    let lChildren = aSimpleASTNodeRef.children
-    if lChildren.isNil:
-      result = " ".repeat(lSpaces) & aSimpleASTNodeRef.name
-    else:
+proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
+
+  proc getWAXEYENim_Inner (aSimpleASTNodeRef: SimpleASTNodeRef, aFowardDefinitions: var string, aSpaces: int = 0): string =
+    result = ""
+    if not aSimpleASTNodeRef.isNil:
+      var lSpaces = aSpaces
+      let lChildren = aSimpleASTNodeRef.children
       case aSimpleASTNodeRef.name
       of "Definition":
-        result &= "\n"
+        result &= "\n\n"
         case lChildren[1].name
         of "LeftArrow":
-          result &= "leftPEGRule(" & lChildren[0].value & "):\n"
+          aFowardDefinitions &= "leftDefinitionPEGForward(" & lChildren[0].value & ")\n"
+          result &= "leftDefinitionPEG(" & lChildren[0].value & "):\n"
         of "VoidArrow":
-          result &= "voidPEGRule(" & lChildren[0].value & "):\n"
+          aFowardDefinitions &= "voidDefinitionPEGForward(" & lChildren[0].value & ")\n"
+          result &= "voidDefinitionPEG(" & lChildren[0].value & "):\n"
         of "PruneArrow":
-          result &= "prunePEGRule(" & lChildren[0].value & "):\n"
+          aFowardDefinitions &= "pruneDefinitionPEGForward(" & lChildren[0].value & ")\n"
+          result &= "pruneDefinitionPEG(" & lChildren[0].value & "):\n"
         lSpaces += 2
         for lIndex in 2..<lChildren.len:
-          result &= getWAXEYENim(lChildren[lIndex], lSpaces)
+          result &= getWAXEYENim_Inner(lChildren[lIndex], aFowardDefinitions, lSpaces)
         result &= "\n"
       of "Alternation":
         if lChildren.len > 1:
           result &= " ".repeat(lSpaces) & "alternationPEG:\n"
-          result &= getWAXEYENim(lChildren[0], lSpaces + 2)
+          result &= getWAXEYENim_Inner(lChildren[0], aFowardDefinitions, lSpaces + 2)
           for lIndex in 1..<(lChildren.len-1):
             result &= "\n"
             result &= " ".repeat(lSpaces) & "do:\n"
             lSpaces += 2
             result &= " ".repeat(lSpaces) & "alternationPEG:\n"
-            result &= getWAXEYENim(lChildren[lIndex], lSpaces + 2)
-
+            result &= getWAXEYENim_Inner(lChildren[lIndex], aFowardDefinitions, lSpaces + 2)
           result &= "\n"
           result &= " ".repeat(lSpaces) & "do:\n"
-          result &= getWAXEYENim(lChildren[<lChildren.len], lSpaces + 2)
+          result &= getWAXEYENim_Inner(lChildren[<lChildren.len], aFowardDefinitions, lSpaces + 2)
         else:
-          result &= getWAXEYENim(lChildren[0], lSpaces)
+          result &= getWAXEYENim_Inner(lChildren[0], aFowardDefinitions, lSpaces)
       of "Sequence":
         if lChildren.len > 1:
           result &= " ".repeat(lSpaces) & "sequencePEG:\n"
-          result &= getWAXEYENim(lChildren[0], lSpaces + 2)
+          result &= getWAXEYENim_Inner(lChildren[0], aFowardDefinitions, lSpaces + 2)
           for lIndex in 1..<(lChildren.len-1):
             result &= "\n"
             result &= " ".repeat(lSpaces) & "do:\n"
             lSpaces += 2
             result &= " ".repeat(lSpaces) & "sequencePEG:\n"
-            result &= getWAXEYENim(lChildren[lIndex], lSpaces + 2)
-
+            result &= getWAXEYENim_Inner(lChildren[lIndex], aFowardDefinitions, lSpaces + 2)
           result &= "\n"
           result &= " ".repeat(lSpaces) & "do:\n"
-          result &= getWAXEYENim(lChildren[<lChildren.len], lSpaces + 2)
+          result &= getWAXEYENim_Inner(lChildren[<lChildren.len], aFowardDefinitions, lSpaces + 2)
         else:
-          result &= getWAXEYENim(lChildren[0], lSpaces)
+          result &= getWAXEYENim_Inner(lChildren[0], aFowardDefinitions, lSpaces)
       of "Unit":
         var lStartIndex = 0
         if lChildren[0].name == "Prefix":
@@ -595,13 +595,13 @@ proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef, aSpaces: int = 0): strin
             result &= " ".repeat(lSpaces) & "stringOfPEG:\n"
           lSpaces += 2
         for lIndex in lStartIndex..<lChildren.len:
-          result &= getWAXEYENim(lChildren[lIndex], lSpaces)
+          result &= getWAXEYENim_Inner(lChildren[lIndex], aFowardDefinitions, lSpaces)
       of "WildCard":
         result &= " ".repeat(lSpaces) & "anyPEG"
       of "Literal":
-        result &= " ".repeat(lSpaces) & "\"" & aSimpleASTNodeRef.value & "\".terminalPEG"
+        result &= " ".repeat(lSpaces) & "\"" & aSimpleASTNodeRef.value.replace("\\'","'").replace("\\r","\\x0D").replace("\\n","\\x0A") & "\".terminalPEG"
       of "CaseLiteral":
-        result &= " ".repeat(lSpaces) & "\"" & aSimpleASTNodeRef.value & "\".terminalNoCasePEG"
+        result &= " ".repeat(lSpaces) & "\"" & aSimpleASTNodeRef.value.replace("\\'","'").replace("\\r","\\x0D").replace("\\n","\\x0A") & "\".terminalNoCasePEG"
       of "Char":
         let lValue = aSimpleASTNodeRef.value
         result = lValue
@@ -627,9 +627,9 @@ proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef, aSpaces: int = 0): strin
         result &= "\\x" & aSimpleASTNodeRef.value.toUpperAscii
       of "Range":
         if lChildren.len == 1:
-          result &= "'" & getWAXEYENim(lChildren[0]) & "'"
+          result &= "'" & getWAXEYENim_Inner(lChildren[0], aFowardDefinitions) & "'"
         else:
-          result &= "'" & getWAXEYENim(lChildren[0]) & "'..'" & getWAXEYENim(lChildren[1]) & "'"
+          result &= "'" & getWAXEYENim_Inner(lChildren[0], aFowardDefinitions) & "'..'" & getWAXEYENim_Inner(lChildren[1], aFowardDefinitions) & "'"
       of "CharClass":
         result &= " ".repeat(lSpaces) & "{"
         var lAdd = false
@@ -638,7 +638,7 @@ proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef, aSpaces: int = 0): strin
             result &= ", "
           else:
             lAdd = true
-          result &= getWAXEYENim(lChild, lSpaces)
+          result &= getWAXEYENim_Inner(lChild, aFowardDefinitions, lSpaces)
         result &= "}.terminalPEG"
       of "Identifier":
         result = aSimpleASTNodeRef.value
@@ -648,8 +648,13 @@ proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef, aSpaces: int = 0): strin
             result = " ".repeat(lSpaces) & result & ".notTerminalPEG"
       else:
         for lChild in lChildren:
-          result &= getWAXEYENim(lChild, lSpaces)
-      
+          result &= getWAXEYENim_Inner(lChild, aFowardDefinitions, lSpaces)
+  
+  result = ""    
+  var aFowardDefinitions = ""
+  result = getWAXEYENim_Inner(aSimpleASTNodeRef, aFowardDefinitions)
+  result = aFowardDefinitions & "\n" & result
+
 
 when isMainModule:
   const
@@ -698,7 +703,7 @@ Ws          <: *( [ \t]
               | EndOfLine
               | SComment
               | MComment)
-test <- [\<87>-\<Ab>,\t] """
+"""
 
   proc mainModule =
     # "a <- \"12\" b <: \"34\" \"56\"".withStream(lStream):
