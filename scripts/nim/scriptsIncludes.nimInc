@@ -30,8 +30,7 @@ proc getNameFromDir(aPath: string): string =
   result = aPath.splitFile.name
   let lRFind = result.rFind({'-'})
   if lRFind > -1:
-    result.delete(lRFind, <result.len)
-  result = result
+    result.delete(lRFind, result.len.pred())
 
 
 proc getSourceDir(): string =
@@ -56,6 +55,7 @@ proc getBinaryFileNameNoExt(): string =
 
 proc getBinaryFileExt (): string =
   if ("js" == getTargetCPU()): 
+    # Check it with this command line: nim --putenv:NIM_VERBOSITY="3" --putenv:NIM_TARGET_CPU="js" CTest
     ".js"
   else:
     if (getTargetOS() == gcWindowsStr): ".exe" else: ""
@@ -392,7 +392,7 @@ task NCompile, "Compile using nimble":
 
 task Util_TravisEnvMat, "generate the complete travis-ci env matrix":
   const
-    lEnvs = @[@[gcGCCVersionToUseEnvVarName,"4.8","4.9","5","6","7"],@[gcNimBranchToUseEnvVarName,"master","devel"],@[gcTargetOSEnvVarName,"linux",gcWindowsStr],@[gcTargetCpuEnvVarName,"amd64","i386"]]
+    lEnvs = @[@[gcGCCVersionToUseEnvVarName,"4.8","4.9","5","6","7","8"],@[gcNimBranchToUseEnvVarName,"master","devel"],@[gcTargetOSEnvVarName,"linux",gcWindowsStr],@[gcTargetCpuEnvVarName,"amd64","i386"]]
     lEnvsLow = lEnvs.low
     lEnvsHigh = lEnvs.high
   var
