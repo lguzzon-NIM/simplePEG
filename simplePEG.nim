@@ -80,7 +80,7 @@ proc `$`(aSimplePEGNodeObject: SimplePEGNodeObject): string =
 Is Terminal
   Slice -> $1
   Slice AsString -> $2
-      """ % [$aValue.FSlice, aValue.FSlice.asString()]).indent(aTabs)
+      """ % [$aValue.FSlice, aValue.FSlice.asString]).indent(aTabs)
     else:
       result = ("""
 
@@ -439,7 +439,7 @@ template stringOfPEG* (aBody: untyped): untyped =
       aBody
       if lResult.isTrue and (lStackLen < lStack.len):
         var lItems: SimplePEGNodeObjectSeq = newSeqOfCap[SimplePEGNodeObject](lStack.len - lStackLen)
-        for lItem in lStackLen .. <lStack.len:
+        for lItem in lStackLen .. lStack.len.pred:
           lItems.add(lStack[lItem])
         popStackStatePEG
         lResult = Just(SimplePEGNodeObject(FIsTerminal: false, FName: "$", FItems: lItems))
@@ -541,14 +541,14 @@ proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
           aFowardDefinitions &= "pruneDefinitionPEGForward(" & lChildren[0].value & ")\n"
           result &= "pruneDefinitionPEG(" & lChildren[0].value & "):\n"
         lSpaces += 2
-        for lIndex in 2..<lChildren.len:
+        for lIndex in 2 .. lChildren.len.pred:
           result &= getWAXEYENim_Inner(lChildren[lIndex], aFowardDefinitions, lSpaces)
         result &= "\n"
       of "Alternation":
         if lChildren.len > 1:
           result &= " ".repeat(lSpaces) & "alternationPEG:\n"
           result &= getWAXEYENim_Inner(lChildren[0], aFowardDefinitions, lSpaces + 2)
-          for lIndex in 1..<(lChildren.len-1):
+          for lIndex in 1 .. lChildren.len.pred(2):
             result &= "\n"
             result &= " ".repeat(lSpaces) & "do:\n"
             lSpaces += 2
@@ -556,14 +556,14 @@ proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
             result &= getWAXEYENim_Inner(lChildren[lIndex], aFowardDefinitions, lSpaces + 2)
           result &= "\n"
           result &= " ".repeat(lSpaces) & "do:\n"
-          result &= getWAXEYENim_Inner(lChildren[<lChildren.len], aFowardDefinitions, lSpaces + 2)
+          result &= getWAXEYENim_Inner(lChildren[lChildren.len.pred], aFowardDefinitions, lSpaces + 2)
         else:
           result &= getWAXEYENim_Inner(lChildren[0], aFowardDefinitions, lSpaces)
       of "Sequence":
         if lChildren.len > 1:
           result &= " ".repeat(lSpaces) & "sequencePEG:\n"
           result &= getWAXEYENim_Inner(lChildren[0], aFowardDefinitions, lSpaces + 2)
-          for lIndex in 1..<(lChildren.len-1):
+          for lIndex in 1 .. lChildren.len.pred(2):
             result &= "\n"
             result &= " ".repeat(lSpaces) & "do:\n"
             lSpaces += 2
@@ -571,7 +571,7 @@ proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
             result &= getWAXEYENim_Inner(lChildren[lIndex], aFowardDefinitions, lSpaces + 2)
           result &= "\n"
           result &= " ".repeat(lSpaces) & "do:\n"
-          result &= getWAXEYENim_Inner(lChildren[<lChildren.len], aFowardDefinitions, lSpaces + 2)
+          result &= getWAXEYENim_Inner(lChildren[lChildren.len.pred], aFowardDefinitions, lSpaces + 2)
         else:
           result &= getWAXEYENim_Inner(lChildren[0], aFowardDefinitions, lSpaces)
       of "Unit":
@@ -594,7 +594,7 @@ proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
           of "$":
             result &= " ".repeat(lSpaces) & "stringOfPEG:\n"
           lSpaces += 2
-        for lIndex in lStartIndex..<lChildren.len:
+        for lIndex in lStartIndex .. lChildren.len.pred:
           result &= getWAXEYENim_Inner(lChildren[lIndex], aFowardDefinitions, lSpaces)
       of "WildCard":
         result &= " ".repeat(lSpaces) & "anyPEG"
@@ -712,7 +712,7 @@ Ws          <: *( [ \t]
     #     echo lSimpleASTNode.asASTStr
 
     WAXEYE_GRAMMAR_WAXEYE.withStream(lStream):
-      let lSimpleASTNode = lStream.WAXEYE().asSimpleASTNode
+      let lSimpleASTNode = lStream.WAXEYE.asSimpleASTNode
       if not lSimpleASTNode.isNil:
         echo lSimpleASTNode.asASTStr
         echo lSimpleASTNode.getWAXEYENim
@@ -720,3 +720,4 @@ Ws          <: *( [ \t]
   mainModule()
 
 #nim --putenv:NIM_VERBOSITY=3 cBuild release 2> log.txt
+#nim cRun release > log.txt
