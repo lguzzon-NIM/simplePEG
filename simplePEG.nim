@@ -522,7 +522,7 @@ include simplePEG.GRMs.WAXEYE
 
 proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
 
-  proc getWAXEYENim_Inner (aSimpleASTNodeRef: SimpleASTNodeRef, aFowardDefinitions: var string, aSpaces: int = 0): string =
+  proc getWAXEYENim_Inner (aSimpleASTNodeRef: SimpleASTNodeRef, aForwardDefinitions: var string, aSpaces: int = 0): string =
     result = ""
     if not aSimpleASTNodeRef.isNil:
       var lSpaces = aSpaces
@@ -532,48 +532,48 @@ proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
         result &= "\n\n"
         case lChildren[1].name
         of "LeftArrow":
-          aFowardDefinitions &= "leftDefinitionPEGForward(" & lChildren[0].value & ")\n"
+          aForwardDefinitions &= "leftDefinitionPEGForward(" & lChildren[0].value & ")\n"
           result &= "leftDefinitionPEG(" & lChildren[0].value & "):\n"
         of "VoidArrow":
-          aFowardDefinitions &= "voidDefinitionPEGForward(" & lChildren[0].value & ")\n"
+          aForwardDefinitions &= "voidDefinitionPEGForward(" & lChildren[0].value & ")\n"
           result &= "voidDefinitionPEG(" & lChildren[0].value & "):\n"
         of "PruneArrow":
-          aFowardDefinitions &= "pruneDefinitionPEGForward(" & lChildren[0].value & ")\n"
+          aForwardDefinitions &= "pruneDefinitionPEGForward(" & lChildren[0].value & ")\n"
           result &= "pruneDefinitionPEG(" & lChildren[0].value & "):\n"
         lSpaces += 2
         for lIndex in 2 .. lChildren.len.pred:
-          result &= getWAXEYENim_Inner(lChildren[lIndex], aFowardDefinitions, lSpaces)
+          result &= getWAXEYENim_Inner(lChildren[lIndex], aForwardDefinitions, lSpaces)
         result &= "\n"
       of "Alternation":
         if lChildren.len > 1:
           result &= " ".repeat(lSpaces) & "alternationPEG:\n"
-          result &= getWAXEYENim_Inner(lChildren[0], aFowardDefinitions, lSpaces + 2)
+          result &= getWAXEYENim_Inner(lChildren[0], aForwardDefinitions, lSpaces + 2)
           for lIndex in 1 .. lChildren.len.pred(2):
             result &= "\n"
             result &= " ".repeat(lSpaces) & "do:\n"
             lSpaces += 2
             result &= " ".repeat(lSpaces) & "alternationPEG:\n"
-            result &= getWAXEYENim_Inner(lChildren[lIndex], aFowardDefinitions, lSpaces + 2)
+            result &= getWAXEYENim_Inner(lChildren[lIndex], aForwardDefinitions, lSpaces + 2)
           result &= "\n"
           result &= " ".repeat(lSpaces) & "do:\n"
-          result &= getWAXEYENim_Inner(lChildren[lChildren.len.pred], aFowardDefinitions, lSpaces + 2)
+          result &= getWAXEYENim_Inner(lChildren[lChildren.len.pred], aForwardDefinitions, lSpaces + 2)
         else:
-          result &= getWAXEYENim_Inner(lChildren[0], aFowardDefinitions, lSpaces)
+          result &= getWAXEYENim_Inner(lChildren[0], aForwardDefinitions, lSpaces)
       of "Sequence":
         if lChildren.len > 1:
           result &= " ".repeat(lSpaces) & "sequencePEG:\n"
-          result &= getWAXEYENim_Inner(lChildren[0], aFowardDefinitions, lSpaces + 2)
+          result &= getWAXEYENim_Inner(lChildren[0], aForwardDefinitions, lSpaces + 2)
           for lIndex in 1 .. lChildren.len.pred(2):
             result &= "\n"
             result &= " ".repeat(lSpaces) & "do:\n"
             lSpaces += 2
             result &= " ".repeat(lSpaces) & "sequencePEG:\n"
-            result &= getWAXEYENim_Inner(lChildren[lIndex], aFowardDefinitions, lSpaces + 2)
+            result &= getWAXEYENim_Inner(lChildren[lIndex], aForwardDefinitions, lSpaces + 2)
           result &= "\n"
           result &= " ".repeat(lSpaces) & "do:\n"
-          result &= getWAXEYENim_Inner(lChildren[lChildren.len.pred], aFowardDefinitions, lSpaces + 2)
+          result &= getWAXEYENim_Inner(lChildren[lChildren.len.pred], aForwardDefinitions, lSpaces + 2)
         else:
-          result &= getWAXEYENim_Inner(lChildren[0], aFowardDefinitions, lSpaces)
+          result &= getWAXEYENim_Inner(lChildren[0], aForwardDefinitions, lSpaces)
       of "Unit":
         var lStartIndex = 0
         if lChildren[0].name == "Prefix":
@@ -595,7 +595,7 @@ proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
             result &= " ".repeat(lSpaces) & "stringOfPEG:\n"
           lSpaces += 2
         for lIndex in lStartIndex .. lChildren.len.pred:
-          result &= getWAXEYENim_Inner(lChildren[lIndex], aFowardDefinitions, lSpaces)
+          result &= getWAXEYENim_Inner(lChildren[lIndex], aForwardDefinitions, lSpaces)
       of "WildCard":
         result &= " ".repeat(lSpaces) & "anyPEG"
       of "Literal":
@@ -627,9 +627,9 @@ proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
         result &= "\\x" & aSimpleASTNodeRef.value.toUpperAscii
       of "Range":
         if lChildren.len == 1:
-          result &= "'" & getWAXEYENim_Inner(lChildren[0], aFowardDefinitions) & "'"
+          result &= "'" & getWAXEYENim_Inner(lChildren[0], aForwardDefinitions) & "'"
         else:
-          result &= "'" & getWAXEYENim_Inner(lChildren[0], aFowardDefinitions) & "'..'" & getWAXEYENim_Inner(lChildren[1], aFowardDefinitions) & "'"
+          result &= "'" & getWAXEYENim_Inner(lChildren[0], aForwardDefinitions) & "'..'" & getWAXEYENim_Inner(lChildren[1], aForwardDefinitions) & "'"
       of "CharClass":
         result &= " ".repeat(lSpaces) & "{"
         var lAdd = false
@@ -638,7 +638,7 @@ proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
             result &= ", "
           else:
             lAdd = true
-          result &= getWAXEYENim_Inner(lChild, aFowardDefinitions, lSpaces)
+          result &= getWAXEYENim_Inner(lChild, aForwardDefinitions, lSpaces)
         result &= "}.terminalPEG"
       of "Identifier":
         result = aSimpleASTNodeRef.value
@@ -648,12 +648,12 @@ proc getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
             result = " ".repeat(lSpaces) & result & ".notTerminalPEG"
       else:
         for lChild in lChildren:
-          result &= getWAXEYENim_Inner(lChild, aFowardDefinitions, lSpaces)
+          result &= getWAXEYENim_Inner(lChild, aForwardDefinitions, lSpaces)
   
   result = ""    
-  var aFowardDefinitions = ""
-  result = getWAXEYENim_Inner(aSimpleASTNodeRef, aFowardDefinitions)
-  result = aFowardDefinitions & "\n" & result
+  var aForwardDefinitions = ""
+  result = getWAXEYENim_Inner(aSimpleASTNodeRef, aForwardDefinitions)
+  result = aForwardDefinitions & "\n" & result
 
 
 when isMainModule:
