@@ -5,7 +5,7 @@ import osproc
 import strutils
 
 import simplePEG
-import simplePEG.consts
+import simplePEG/consts
 
 
 suite "unit-test suite":
