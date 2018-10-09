@@ -1,40 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import streams
 import strutils
 
@@ -95,7 +58,7 @@ proc asSimpleASTNode* (aSelf: SimplePEGNode): SimpleASTNodeRef =
 
 proc asString* (aSimplePEGSlice: SimplePEGSliceObject): string =
   result = aSimplePEGSlice.FAsString
-  if result.len == 0 :
+  if result.len == 0:
     let lStream = aSimplePEGSlice.FStream
     let lOldPosition = lStream.getPosition
     defer:
@@ -111,43 +74,7 @@ proc `$`(aSimplePEGNodeObject: SimplePEGNodeObject): string =
 
   proc innerEcho(aValue: SimplePEGNodeObject, aTabs: int): string =
     if aValue.FIsTerminal:
-      result = (
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                                                                                                                                                      """
+      result = ("""
 
 Is Terminal
   Slice -> $1
@@ -155,8 +82,7 @@ Is Terminal
       """ %
           [$aValue.FSlice, aValue.FSlice.asString]).indent(aTabs)
     else:
-      result = (
-          """
+      result = ("""
 
 Is Not Terminal
   Name -> $1
