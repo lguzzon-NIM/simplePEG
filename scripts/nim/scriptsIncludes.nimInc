@@ -359,7 +359,11 @@ task CBuildToDeploy, "clean and build the project ready to deploy":
 task Run, "run the project ex: nim --putenv:runParams=\"<Parameters>\" run":
   dependsOn Build
   let params = if existsEnv("runParams"): " " & getEnv("runParams") else: ""
-  let command = (getBuildBinaryFile() & params).strip()
+  let command = ((if ("js" == getTargetCPU()): 
+    "node "
+  else:
+    "") & 
+    (getBuildBinaryFile() & params)).strip()
   command.exec()
 
 
