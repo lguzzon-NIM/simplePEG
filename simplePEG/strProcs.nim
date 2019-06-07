@@ -7,5 +7,3 @@ template equalEx* (aLeft, aRight: string, aCasesInsensitive: bool = false): unty
     (cmpIgnoreCase(aLeft, aRight) == 0)
   else:
     (aLeft == aRight)
-
-

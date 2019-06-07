@@ -1,16 +1,15 @@
 
 
 type
-  Maybe* [T] =  object {. final .}
+  Maybe* [T] {.final.} = object
     case hasValue*: bool
     of true: value*: T
     else: discard
 
 
-proc Just* [T](aValue: T): Maybe[T] =
-  result = Maybe[T](hasValue: true, value: aValue)
+template Just* [T](aValue: T): Maybe[T] =
+  type TT = T
+  Maybe[TT](hasValue: true, value: aValue)
 
-
-proc Nothing* [T]: Maybe[T] =
-  result = Maybe[T](hasValue: false)
-
+func Nothing* [T]: Maybe[T] {.inline.} =
+  Maybe[T](hasValue: false)
