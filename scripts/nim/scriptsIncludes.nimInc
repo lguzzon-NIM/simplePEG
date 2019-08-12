@@ -1,7 +1,6 @@
 
-import sets
 import strutils
-import ospaths
+import os
 
 include "scriptsEnvVarNames.nimInc"
 
@@ -73,21 +72,21 @@ proc getBuildBinaryFile (): string =
 
 proc splitCmdLine(): tuple[options, command, params: string] =
   var lIndex = 1
-  let lCount = paramCount()
+  let lCount = system.paramCount()
   var lResult = ""
   while lIndex <= lCount:
-    if paramStr(lIndex)[0] == '-':
-      lResult &= " \"$1\""%[paramStr(lIndex)]
+    if system.paramStr(lIndex)[0] == '-':
+      lResult &= " \"$1\""%[system.paramStr(lIndex)]
       lIndex.inc
     else:
       break
   result.options = lResult.strip()
   if (lIndex <= lCount):
-    result.command = paramStr(lIndex).strip()
+    result.command = system.paramStr(lIndex).strip()
     lIndex.inc
   lResult = ""
   while lIndex <= lCount:
-    lResult &= " "  & paramStr(lIndex)
+    lResult &= " "  &  system.paramStr(lIndex)
     lIndex.inc
   result.params = lResult.strip()
 
@@ -110,7 +109,7 @@ template dependsOn (tasks: untyped) =
 
 proc build_create () =
   for Dir in @[gcBuildCacheDir, gcBuildTargetDir, gcBuildTargetTestDir]:
-    if not dirExists(Dir):
+    if not system.dirExists(Dir):
       mkdir Dir
 
 
@@ -171,7 +170,7 @@ const
 
 proc getSourceMainFile (): string =
   let lMainFile = getSourceDir() / thisDir().getNameFromDir() & "." & gcNimFileExt
-  if fileExists(lMainFile):
+  if system.fileExists(lMainFile):
     result = lMainFile
   else:
     let lMessage = "Not found source [$1] in [$2]"%[lMainFile, thisDir()]
@@ -284,12 +283,12 @@ task CreateNew, "create a new project from " & "n" & "imTemplate":
 
 
 task Clean, "clean the project":
-  if dirExists("nimcache"):
+  if system.dirExists("nimcache"):
     "nimcache".rmDir()
   let lFileToRemove = "$1.$2"%[thisDir().getNameFromDir(), ExeExt]
-  if fileExists(lFileToRemove):
+  if system.fileExists(lFileToRemove):
     lFileToRemove.rmFile()
-  if dirExists(gcBuildDir):
+  if system.dirExists(gcBuildDir):
     gcBuildDir.rmDir()
   else:
     echo "Nothing to clean"
@@ -343,7 +342,7 @@ task BuildBinary, "":
 
 
 task Build, "build the project":
-  if not fileExists(getBuildBinaryFile()):
+  if not system.fileExists(getBuildBinaryFile()):
     dependsOn BuildBinary
     if ("js" == getTargetCPU()):
       discard
