@@ -8,14 +8,15 @@ readonly aptGetInstallCmd="${aptGetCmd} --no-install-suggests --no-install-recom
 
 #Before Install
 if [ -z ${NIM_BRANCH+x} ]; then
-	export NIM_BRANCH=master
+  export NIM_BRANCH=master
 fi
 if [ -z ${USE_GCC+x} ]; then
-	export USE_GCC=4.8
+  export USE_GCC=4.8
 fi
 if [ -z ${NIM_VERBOSITY+x} ]; then
-	export NIM_VERBOSITY=0
+  export NIM_VERBOSITY=0
 fi
+
 sudo -E add-apt-repository -y ppa:ubuntu-toolchain-r/test
 ${aptGetCmd} update
 ${aptGetInstallCmd} "gcc-${USE_GCC}" "g++-${USE_GCC}" git
@@ -45,66 +46,66 @@ PATH="$(pwd)/upx-${lUPXVersion}-amd64_linux${PATH:+:$PATH}" || true
 popd
 
 compile() {
-	./bin/nim c koch
-	./koch boot -d:release
-	./koch tools -d:release
+  ./bin/nim c koch
+  ./koch boot -d:release
+  ./koch tools -d:release
 }
 
 readonly lNimAppPath=toCache/nim-${NIM_BRANCH}-${USE_GCC}
 if [ ! -x ${lNimAppPath}/bin/nim ]; then
-	git clone -b ${NIM_BRANCH} --depth 1 git://github.com/nim-lang/nim ${lNimAppPath}/
-	pushd ${lNimAppPath}
-	git clone --depth 1 git://github.com/nim-lang/csources csources/
-	pushd csources
-	sh build.sh
-	popd
-	rm -rf csources
-	compile
-	popd
+  git clone -b ${NIM_BRANCH} --depth 1 git://github.com/nim-lang/nim ${lNimAppPath}/
+  pushd ${lNimAppPath}
+  git clone --depth 1 git://github.com/nim-lang/csources csources/
+  pushd csources
+  sh build.sh
+  popd
+  rm -rf csources
+  compile
+  popd
 else
-	pushd ${lNimAppPath}
-	git fetch origin
-	if ! git merge FETCH_HEAD | grep "Already up-to-date"; then
-		compile
-	fi
-	popd
+  pushd ${lNimAppPath}
+  git fetch origin
+  if ! git merge FETCH_HEAD | grep "Already up-to-date"; then
+    compile
+  fi
+  popd
 fi
 popd
 rm -f nim.cfg
 if [ "${NIM_TARGET_OS}" = "windows" ]; then
-	echo "------------------------------------------------------------ targetOS: ${NIM_TARGET_OS}"
-	rm -rdf ~/.wine
-	${aptGetInstallCmd} mingw-w64 wine
-	if [ "${NIM_TARGET_CPU}" = "i386" ]; then
-		echo "------------------------------------------------------------ targetCPU: ${NIM_TARGET_CPU}"
-		export WINEARCH=win32
-		{
-			echo i386.windows.gcc.path = \"/usr/bin\"
-			echo i386.windows.gcc.exe = \"i686-w64-mingw32-gcc\"
-			echo i386.windows.gcc.linkerexe = \"i686-w64-mingw32-gcc\"
-			echo gcc.options.linker = \"\"
-		} >nim.cfg
-	else
-		echo "------------------------------------------------------------ targetCPU: ${NIM_TARGET_CPU}"
-		export WINEARCH=win64
-		if [ "${NIM_TARGET_CPU}" = "amd64" ]; then
-			{
-				echo amd64.windows.gcc.path = \"/usr/bin\"
-				echo amd64.windows.gcc.exe = \"x86_64-w64-mingw32-gcc\"
-				echo amd64.windows.gcc.linkerexe = \"x86_64-w64-mingw32-gcc\"
-				echo gcc.options.linker = \"\"
-			} >nim.cfg
-		fi
-	fi
-	wine hostname
+  echo "------------------------------------------------------------ targetOS: ${NIM_TARGET_OS}"
+  rm -rdf ~/.wine
+  ${aptGetInstallCmd} mingw-w64 wine
+  if [ "${NIM_TARGET_CPU}" = "i386" ]; then
+    echo "------------------------------------------------------------ targetCPU: ${NIM_TARGET_CPU}"
+    export WINEARCH=win32
+    {
+      echo i386.windows.gcc.path = \"/usr/bin\"
+      echo i386.windows.gcc.exe = \"i686-w64-mingw32-gcc\"
+      echo i386.windows.gcc.linkerexe = \"i686-w64-mingw32-gcc\"
+      echo gcc.options.linker = \"\"
+    } >nim.cfg
+  else
+    echo "------------------------------------------------------------ targetCPU: ${NIM_TARGET_CPU}"
+    export WINEARCH=win64
+    if [ "${NIM_TARGET_CPU}" = "amd64" ]; then
+      {
+        echo amd64.windows.gcc.path = \"/usr/bin\"
+        echo amd64.windows.gcc.exe = \"x86_64-w64-mingw32-gcc\"
+        echo amd64.windows.gcc.linkerexe = \"x86_64-w64-mingw32-gcc\"
+        echo gcc.options.linker = \"\"
+      } >nim.cfg
+    fi
+  fi
+  wine hostname
 else
-	if [ "${NIM_TARGET_OS}" = "linux" ]; then
-		echo "------------------------------------------------------------ targetOS: ${NIM_TARGET_OS}"
-		if [ "${NIM_TARGET_CPU}" = "i386" ]; then
-			echo "------------------------------------------------------------ targetCPU: ${NIM_TARGET_CPU}"
-			${aptGetInstallCmd} gcc-${USE_GCC}-multilib g++-${USE_GCC}-multilib gcc-multilib g++-multilib
-		fi
-	fi
+  if [ "${NIM_TARGET_OS}" = "linux" ]; then
+    echo "------------------------------------------------------------ targetOS: ${NIM_TARGET_OS}"
+    if [ "${NIM_TARGET_CPU}" = "i386" ]; then
+      echo "------------------------------------------------------------ targetCPU: ${NIM_TARGET_CPU}"
+      ${aptGetInstallCmd} gcc-${USE_GCC}-multilib g++-${USE_GCC}-multilib gcc-multilib g++-multilib
+    fi
+  fi
 fi
 
 #Before Script
