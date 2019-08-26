@@ -10,4 +10,4 @@ installFiles = @["simplePEG.nim", "LICENSE", "README.md"]
 
 # Dependencies
 requires "nim >= 0.20.0"
-requires "simpleAST >= 1.1.3"
+requires "simpleAST >= 1.1.4"

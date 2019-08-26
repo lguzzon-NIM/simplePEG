@@ -39,18 +39,22 @@ type
 
   SimplePegCharSet = string | set[char]
 
+
 template getPosition(aStream: SimplePegInputStream): untyped =
   aStream.fIndex
+
 
 template setPosition(aStream: SimplePegInputStream,
                      aPosition: int): untyped =
   aStream.fIndex = clamp(aPosition, 0, aStream.fString.len)
+
 
 template readstr(aStream: SimplePegInputStream,
                  aLength: int): untyped =
   aStream.fString.substr(aStream.fIndex,
                          clamp(aStream.fIndex + aLength.pred,
                                0, aStream.fString.len))
+
 
 func asSimpleASTNode* (aSelf: SimplePEGNode): SimpleASTNodeRef =
   when aSelf is SimplePEGNodeObject:
@@ -62,22 +66,19 @@ func asSimpleASTNode* (aSelf: SimplePEGNode): SimpleASTNodeRef =
   if lSelf.fIsTerminal:
     result = newSimpleASTNode(lSelf.fSlice.asString)
   else:
-    if lSelf.fName.startsWith("$") and (lSelf.fItems.len > 0):
-      result = newSimpleASTNode(lSelf.fName.split("$", 1)[1])
-    else:
-      result = newSimpleASTNode(lSelf.fName)
-      if (not result.isNil):
-        for lItem in lSelf.fItems:
-          let lChild = lItem.asSimpleASTNode
-          if not lChild.isNil:
-            discard result.addChild(lChild)
-          else:
-            return nil
+    result = newSimpleASTNode(lSelf.fName)
+    if (not result.isNil):
+      for lItem in lSelf.fItems:
+        let lChild = lItem.asSimpleASTNode
+        if not lChild.isNil:
+          discard result.addChild(lChild)
+        else:
+          return nil
 
 
 func asString* (aSimplePEGSlice: SimplePEGSliceObject): string =
   result = aSimplePEGSlice.fAsString
-  if result.len == 0:
+  if ((0 == result.len) and (0 < aSimplePEGSlice.fLength)):
     let lStream = aSimplePEGSlice.fStream
     let lOldPosition = lStream.getPosition
     defer:
@@ -408,6 +409,8 @@ template leftDefinitionPEG(aRuleName: untyped,
       var lResult {.inject.} = Nothing[SimplePEGNodeObject]()
       aBody
       if lResult.isTrue:
+        if 0 == lStack.len:
+          lStack.add(SimplePEGNodeObject(fIsTerminal: true))
         result = Just(SimplePEGNodeObject(fIsTerminal: false,
                                           fName: astToStr(aRuleName),
                                           fItems: lStack))
@@ -451,6 +454,8 @@ template pruneDefinitionPEG(aRuleName: untyped,
         if 1 == lStack.len:
           result = Just(lStack[0])
         else:
+          if 0 == lStack.len:
+            lStack.add(SimplePEGNodeObject(fIsTerminal: true))
           result = Just(SimplePEGNodeObject(fIsTerminal: false,
                                             fName: astToStr(aRuleName),
                                             fItems: lStack))
@@ -551,9 +556,10 @@ template stringOfPEG* (aBody: untyped): untyped =
         popStackStatePEG
         lResult =
           Just(SimplePEGNodeObject(fIsTerminal: false,
-                                   fName: "$",
+                                   fName: "stringOfPEG",
                                    fItems: lItems))
-        lResult.value.fName &= lResult.valuePEG
+        lResult.value.fName = lResult.valuePEG
+        lResult.value.fItems.setLen(0)
         lStack.add(lResult.value)
     else:
       aBody
@@ -796,13 +802,15 @@ func getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
         result &= " ".repeat(lSpaces) & "{"
         var lAdd = false
         for lChild in lChildren:
-          if lAdd:
-            result &= ", "
-          else:
-            lAdd = true
-          result &= getWAXEYENim_Inner(lChild,
-                                       aForwardDefinitions,
-                                       lSpaces)
+          let lChild_Inner = getWAXEYENim_Inner(lChild,
+                                                aForwardDefinitions,
+                                                lSpaces)
+          if not ("" == lChild_Inner):
+            if lAdd:
+              result &= ", "
+            else:
+              lAdd = true
+            result &= lChild_Inner
         result &= "}.terminalPEG"
       of "Identifier":
         result = aSimpleASTNodeRef.value
@@ -831,12 +839,12 @@ Definition  <- Identifier Arrow Alternation Ws
 Alternation <- Sequence *( Alt Sequence )
 Sequence    <- +Unit
 Unit        <- ?Prefix
-              ( Identifier !Arrow
-              | Open Alternation Close
-              | Literal
-              | CaseLiteral
-              | CharClass
-              | WildCard )
+               ( Identifier !Arrow
+               | Open Alternation Close
+               | Literal
+               | CaseLiteral
+               | CharClass
+               | WildCard )
 Prefix      <- [?*+:&!$] Ws
 Identifier  <- $( [a-zA-Z_] *[a-zA-Z0-9_-] ) Ws
 Literal     <- :['] $( +( !['] ( LChar
@@ -844,16 +852,16 @@ Literal     <- :['] $( +( !['] ( LChar
 CaseLiteral <- :["] $( +( !["] ( LChar
                                | Hex ) ) ) :["] Ws
 LChar       <- '\\' [nrt'"\\]
-            | !'\\' !EndOfLine .
+            |  !'\\' !EndOfLine .
 CharClass   <- :'[' *( !']' Range ) :']' Ws
 Range       <- ( Char | Hex ) ?( :'-' ( Char | Hex ) )
 Char        <- '\\' [nrt\-\]\\]
-            | !'\\' !']' !EndOfLine .
+            |  !'\\' !']' !EndOfLine .
 Hex         <- :'\\<' [0-9A-Fa-f] [0-9A-Fa-f] :'>'
 WildCard    <- :'.' Ws
 Arrow       <= LeftArrow
-            | PruneArrow
-            | VoidArrow
+            |  PruneArrow
+            |  VoidArrow
 LeftArrow   <- :'<-' Ws
 PruneArrow  <- :'<=' Ws
 VoidArrow   <- :'<:' Ws
@@ -865,11 +873,11 @@ SComment    <: '#' *( !EndOfLine . ) ( EndOfLine
 MComment    <: '/*' *( MComment
                     | !'*/' . ) '*/'
 EndOfLine   <: '\r' ?'\n'
-            | '\n'
-Ws          <: *( [ \t]
-              | EndOfLine
-              | SComment
-              | MComment)
+            |  '\n'
+Ws          <- *( :[ \t]
+            |  EndOfLine
+            |  SComment
+            |  MComment)
 """
 
   proc mainModule =
@@ -879,7 +887,9 @@ Ws          <: *( [ \t]
     #     echo lSimpleASTNode.asASTStr
 
     WAXEYE_GRAMMAR_WAXEYE.withStream(lStream):
-      let lSimpleASTNode = lStream.WAXEYE.asSimpleASTNode
+      let lWAXEYE = lStream.WAXEYE
+      echo $lWAXEYE
+      let lSimpleASTNode = lWAXEYE.asSimpleASTNode
       if not lSimpleASTNode.isNil:
         echo lSimpleASTNode.asASTStr
         echo lSimpleASTNode.getWAXEYENim

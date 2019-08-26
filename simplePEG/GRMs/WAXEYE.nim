@@ -24,7 +24,7 @@ voidDefinitionPEGForward(Close)
 voidDefinitionPEGForward(SComment)
 voidDefinitionPEGForward(MComment)
 voidDefinitionPEGForward(EndOfLine)
-voidDefinitionPEGForward(Ws)
+leftDefinitionPEGForward(Ws)
 
 
 
@@ -369,10 +369,11 @@ voidDefinitionPEG(EndOfLine):
     "\x0A".terminalPEG
 
 
-voidDefinitionPEG(Ws):
+leftDefinitionPEG(Ws):
   closurePEG:
     alternationPEG:
-      {' ', '\t'}.terminalPEG
+      voidPEG:
+        {' ', '\t'}.terminalPEG
     do:
       alternationPEG:
         EndOfLine.notTerminalPEG
@@ -381,4 +382,3 @@ voidDefinitionPEG(Ws):
           SComment.notTerminalPEG
         do:
           MComment.notTerminalPEG
-
