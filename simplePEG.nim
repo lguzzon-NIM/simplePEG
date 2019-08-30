@@ -1,10 +1,10 @@
+
 import strutils
 
 import simpleAST
 
 import simplePEG/typeEx
 import simplePEG/strProcs
-import simplePEG/consts
 
 {.warning[ProveField]: off.}
 
@@ -52,31 +52,30 @@ template setPosition(aStream: SimplePegInputStream,
 template readstr(aStream: SimplePegInputStream,
                  aLength: int): untyped =
   aStream.fString.substr(aStream.fIndex,
-                         clamp(aStream.fIndex + aLength.pred,
-                               0, aStream.fString.len))
+                         aStream.fIndex + aLength.pred)
 
 
-func asSimpleASTNode* (aSelf: SimplePEGNode): SimpleASTNodeRef =
+func asSimpleASTNode*(aSelf: SimplePEGNode): SimpleASTNodeRef =
   when aSelf is SimplePEGNodeObject:
     let lSelf = aSelf
   else:
-    if not aSelf.hasValue:
+    if (not aSelf.hasValue):
       return nil
     let lSelf = aSelf.value
-  if lSelf.fIsTerminal:
+  if (lSelf.fIsTerminal):
     result = newSimpleASTNode(lSelf.fSlice.asString)
   else:
     result = newSimpleASTNode(lSelf.fName)
     if (not result.isNil):
       for lItem in lSelf.fItems:
         let lChild = lItem.asSimpleASTNode
-        if not lChild.isNil:
+        if (not lChild.isNil):
           discard result.addChild(lChild)
         else:
           return nil
 
 
-func asString* (aSimplePEGSlice: SimplePEGSliceObject): string =
+func asString*(aSimplePEGSlice: SimplePEGSliceObject): string =
   result = aSimplePEGSlice.fAsString
   if ((0 == result.len) and (0 < aSimplePEGSlice.fLength)):
     let lStream = aSimplePEGSlice.fStream
@@ -94,13 +93,13 @@ func `$`(aSimplePEGNodeObject: SimplePEGNodeObject): string =
 
   func innerEcho(aValue: SimplePEGNodeObject,
                  aTabs: int): string =
-    if aValue.fIsTerminal:
+    if (aValue.fIsTerminal):
       result = (
           """
 
 Is Terminal
   Slice -> $1
-  Slice AsString -> $2
+  Slice AsString ->[$2]<-
       """ % [
               $aValue.fSlice,
               aValue.fSlice.asString]).indent(aTabs)
@@ -125,13 +124,13 @@ func startIndex(aSelf: SimplePEGNodeObject): int =
   when aSelf is SimplePEGNodeObject:
     let lSelf = aSelf
   else:
-    if not aSelf.hasValue:
+    if (not aSelf.hasValue):
       return -1
     let lSelf = aSelf.value
-  if lSelf.fIsTerminal:
+  if (lSelf.fIsTerminal):
     result = lSelf.fSlice.fIndex
   else:
-    if lSelf.fItems.len == 0:
+    if (0 == lSelf.fItems.len):
       result = -1
     else:
       result = startIndex(lSelf.fItems[0])
@@ -141,13 +140,13 @@ func endIndex(aSelf: SimplePEGNode): int =
   when aSelf is SimplePEGNodeObject:
     let lSelf = aSelf
   else:
-    if not aSelf.hasValue:
+    if (not aSelf.hasValue):
       return -1
     let lSelf = aSelf.value
-  if lSelf.fIsTerminal:
+  if (lSelf.fIsTerminal):
     result = lSelf.fSlice.fIndex + lSelf.fSlice.fLength - 1
   else:
-    if lSelf.fItems.isNil:
+    if (lSelf.fItems.isNil):
       result = -1
     else:
       result = endIndex(lSelf.fItems[lSelf.fItems.len.pred])
@@ -157,14 +156,13 @@ func valuePEG (aSelf: SimplePEGNode): string =
   when aSelf is SimplePEGNodeObject:
     let lSelf = aSelf
   else:
-    if not aSelf.hasValue:
+    if (not aSelf.hasValue):
       return ""
     let lSelf = aSelf.value
-  if lSelf.fIsTerminal:
+  if (lSelf.fIsTerminal):
     result = lSelf.fSlice.asString
   else:
-    if lSelf.fItems.len > 0:
-      result = ""
+    if (lSelf.fItems.len > 0):
       for lItem in lSelf.fItems:
         result &= lItem.valuePEG
     else:
@@ -178,14 +176,14 @@ template withStream (aString: string,
     let aStream {.inject.}: SimplePegInputStream =
       SimplePegInputStream(fIndex: 0,
                            fString: aString)
-    if not aStream.isNil:
+    if (not aStream.isNil):
       block withStream_Body:
         aBody
 
 
-func read* (aStream: SimplePegInputStream,
-            aLength: SimplePEGLength,
-            aUsePeek: static[bool]): SimplePEGSliceObjectOption =
+func read*(aStream: SimplePegInputStream,
+           aLength: SimplePEGLength,
+           aUsePeek: static[bool]): SimplePEGSliceObjectOption =
   if (1 > aLength) or aStream.isNil:
     result = Nothing[SimplePEGSliceObject]()
   else:
@@ -197,7 +195,7 @@ func read* (aStream: SimplePegInputStream,
       try:
         let lEndPosition = lBeginIndex + aLength
         aStream.setPosition(lEndPosition)
-        if lEndPosition == aStream.getPosition:
+        if (lEndPosition == aStream.getPosition):
           result = Just(SimplePEGSliceObject(fStream: aStream,
                                              fIndex: lBeginIndex,
                                              fLength: aLength))
@@ -209,15 +207,15 @@ func read* (aStream: SimplePegInputStream,
       result = Nothing[SimplePEGSliceObject]()
 
 
-func charInChars* (aStream: SimplePegInputStream,
-                   aChars: SimplePegCharSet,
-                   aUsePeek: static[bool],
-                   aSaveAsString: static[bool]): SimplePEGSliceObjectOption =
+func charInChars*(aStream: SimplePegInputStream,
+                  aChars: SimplePegCharSet,
+                  aUsePeek: static[bool],
+                  aSaveAsString: static[bool]): SimplePEGSliceObjectOption =
   var lRead = aStream.read(sizeof(char), aUsePeek)
-  if lRead.hasValue:
+  if (lRead.hasValue):
     let lValue = lRead.value
     let lAsString = lValue.asString
-    if lAsString[0] in aChars:
+    if (lAsString[0] in aChars):
       when aSaveAsString:
         lValue.fAsString = lAsString
       result = Just(lValue)
@@ -227,27 +225,27 @@ func charInChars* (aStream: SimplePegInputStream,
     result = Nothing[SimplePEGSliceObject]()
 
 
-template charInChars* (aStream: SimplePegInputStream,
-                       aChars: SimplePegCharSet): SimplePEGSliceObjectOption =
+template charInChars*(aStream: SimplePegInputStream,
+                      aChars: SimplePegCharSet): SimplePEGSliceObjectOption =
   aStream.charInChars(aChars, false, false)
 
 
-template charInCharsPeek* (aStream: SimplePegInputStream,
-                           aChars: SimplePegCharSet): SimplePEGSliceObjectOption =
+template charInCharsPeek*(aStream: SimplePegInputStream,
+                          aChars: SimplePegCharSet): SimplePEGSliceObjectOption =
   aStream.charInChars(aChars, true, false)
 
 
-template charInCharsAsString* (aStream: SimplePegInputStream,
-                               aChars: SimplePegCharSet): SimplePEGSliceObjectOption =
+template charInCharsAsString*(aStream: SimplePegInputStream,
+                              aChars: SimplePegCharSet): SimplePEGSliceObjectOption =
   aStream.charInChars(aChars, false, true)
 
 
-template charInCharsPeekAsString* (aStream: SimplePegInputStream,
-                                   aChars: SimplePegCharSet): SimplePEGSliceObjectOption =
+template charInCharsPeekAsString*(aStream: SimplePegInputStream,
+                                  aChars: SimplePegCharSet): SimplePEGSliceObjectOption =
   aStream.charInChars(aChars, true, true)
 
 
-func stringInString* (aStream: SimplePegInputStream,
+func stringInString*(aStream: SimplePegInputStream,
     aString: string,
     aCasesInsensitive: static[bool],
     aUsePeek: static[bool],
@@ -255,7 +253,7 @@ func stringInString* (aStream: SimplePegInputStream,
   let lLength = aString.len
   var lRead = aStream.read(lLength,
                            aUsePeek)
-  if lRead.hasValue:
+  if (lRead.hasValue):
     let lAsString = lRead.value.asString
     if equalEx(lAsString,
                aString,
@@ -269,7 +267,7 @@ func stringInString* (aStream: SimplePegInputStream,
     result = lRead
 
 
-template stringInString* (aStream: SimplePegInputStream,
+template stringInString*(aStream: SimplePegInputStream,
                           aString: string): SimplePEGSliceObjectOption =
   aStream.stringInString(aString,
                          false,
@@ -277,7 +275,7 @@ template stringInString* (aStream: SimplePegInputStream,
                          false)
 
 
-template stringInStringNoCase* (aStream: SimplePegInputStream,
+template stringInStringNoCase*(aStream: SimplePegInputStream,
                                 aString: string): SimplePEGSliceObjectOption =
   aStream.stringInString(aString,
                          true,
@@ -285,7 +283,7 @@ template stringInStringNoCase* (aStream: SimplePegInputStream,
                          false)
 
 
-template stringInStringPeekCase* (aStream: SimplePegInputStream,
+template stringInStringPeekCase*(aStream: SimplePegInputStream,
                                   aString: string): SimplePEGSliceObjectOption =
   aStream.stringInString(aString,
                          false,
@@ -293,7 +291,7 @@ template stringInStringPeekCase* (aStream: SimplePegInputStream,
                          false)
 
 
-template stringInStringPeekNoCase* (aStream: SimplePegInputStream,
+template stringInStringPeekNoCase*(aStream: SimplePegInputStream,
                                     aString: string): SimplePEGSliceObjectOption =
   aStream.stringInString(aString,
                          aString,
@@ -302,7 +300,7 @@ template stringInStringPeekNoCase* (aStream: SimplePegInputStream,
                          false)
 
 
-template stringInStringAsString* (aStream: SimplePegInputStream,
+template stringInStringAsString*(aStream: SimplePegInputStream,
                                   aString: string): SimplePEGSliceObjectOption =
   aStream.stringInString(aString,
                          false,
@@ -310,7 +308,7 @@ template stringInStringAsString* (aStream: SimplePegInputStream,
                          true)
 
 
-template stringInStringNoCaseAsString* (aStream: SimplePegInputStream,
+template stringInStringNoCaseAsString*(aStream: SimplePegInputStream,
                                         aString: string): SimplePEGSliceObjectOption =
   aStream.stringInString(aString,
                          true,
@@ -318,7 +316,7 @@ template stringInStringNoCaseAsString* (aStream: SimplePegInputStream,
                          true)
 
 
-template stringInStringPeekCaseAsString* (aStream: SimplePegInputStream,
+template stringInStringPeekCaseAsString * (aStream: SimplePegInputStream,
                                           aString: string): SimplePEGSliceObjectOption =
   aStream.stringInString(aString,
                          false,
@@ -326,7 +324,7 @@ template stringInStringPeekCaseAsString* (aStream: SimplePegInputStream,
                          true)
 
 
-template stringInStringPeekNoCaseAsString* (aStream: SimplePegInputStream,
+template stringInStringPeekNoCaseAsString * (aStream: SimplePegInputStream,
                                             aString: string): SimplePEGSliceObjectOption =
   aStream.stringInString(aString,
                          aString,
@@ -339,14 +337,14 @@ template innerDefinitionPEGForward(aRuleName,
                                    aParamName: untyped,
                                    atype: typedesc) =
   #Compiler her does not "inject" aParamName correctly
-  func aRuleName* (aParamName: SimplePegInputStream): atype {.gcsafe.}
+  func aRuleName*(aParamName: SimplePegInputStream): atype {.gcsafe.}
 
 
 template innerDefinitionPEG(aRuleName, aParamName: untyped,
                             atype: typedesc,
                             aBody: untyped) =
   #Compiler her does not "inject" aParamName correctly
-  func aRuleName* (aParamName: SimplePegInputStream): atype {.gcsafe.} =
+  func aRuleName*(aParamName: SimplePegInputStream): atype {.gcsafe.} =
     aBody
 
 
@@ -408,9 +406,11 @@ template leftDefinitionPEG(aRuleName: untyped,
       var lStack {.inject.} = newSeqOfCap[SimplePEGNodeObject](8)
       var lResult {.inject.} = Nothing[SimplePEGNodeObject]()
       aBody
-      if lResult.isTrue:
-        if 0 == lStack.len:
-          lStack.add(SimplePEGNodeObject(fIsTerminal: true))
+      if (lResult.isTrue):
+        if (0 == lStack.len):
+          lStack.add(SimplePEGNodeObject(fIsTerminal: true,
+                                         fSlice: SimplePEGSliceObject(
+                                             fAsString: "")))
         result = Just(SimplePEGNodeObject(fIsTerminal: false,
                                           fName: astToStr(aRuleName),
                                           fItems: lStack))
@@ -450,12 +450,14 @@ template pruneDefinitionPEG(aRuleName: untyped,
       var lStack {.inject.} = newSeqOfCap[SimplePEGNodeObject](8)
       var lResult {.inject.} = Nothing[SimplePEGNodeObject]()
       aBody
-      if lResult.isTrue:
-        if 1 == lStack.len:
+      if (lResult.isTrue):
+        if (1 == lStack.len):
           result = Just(lStack[0])
         else:
-          if 0 == lStack.len:
-            lStack.add(SimplePEGNodeObject(fIsTerminal: true))
+          if (0 == lStack.len):
+            lStack.add(SimplePEGNodeObject(fIsTerminal: true,
+                                           fSlice: SimplePEGSliceObject(
+                                               fAsString: "")))
           result = Just(SimplePEGNodeObject(fIsTerminal: false,
                                             fName: astToStr(aRuleName),
                                             fItems: lStack))
@@ -470,7 +472,7 @@ template anyPEG: untyped =
     when lResult is bool:
       lResult = lAny.hasValue
     else:
-      if lAny.hasValue:
+      if (lAny.hasValue):
         lResult = Just(SimplePEGNodeObject(fIsTerminal: true,
                                            fSlice: lAny.value))
         lStack.add(lResult.value)
@@ -478,19 +480,19 @@ template anyPEG: untyped =
         lResult = Nothing[SimplePEGNodeObject]()
 
 
-template voidPEG* (aBody: untyped): untyped =
+template voidPEG*(aBody: untyped): untyped =
   block voidPEG:
     pushStackStatePEG
     aBody
     popStackStatePEG
 
 
-template closurePEG* (aBody: untyped): untyped =
+template closurePEG*(aBody: untyped): untyped =
   block closurePEG:
     while true:
       pushPEG
       aBody
-      if not lResult.isTrue:
+      if (not lResult.isTrue):
         popPEG
         break
     when lResult is bool:
@@ -500,19 +502,19 @@ template closurePEG* (aBody: untyped): untyped =
                                          fName: "closurePEG"))
 
 
-template plusPEG* (aBody: untyped): untyped =
+template plusPEG*(aBody: untyped): untyped =
   block plusPEG:
     aBody
-    if lResult.isTrue:
+    if (lResult.isTrue):
       closurePEG:
         aBody
 
 
-template optionalPEG* (aBody: untyped): untyped =
+template optionalPEG*(aBody: untyped): untyped =
   block optionalPEG:
     pushPEG
     aBody
-    if not lResult.isTrue:
+    if (not lResult.isTrue):
       popPEG
       when lResult is bool:
         lResult = true
@@ -521,21 +523,21 @@ template optionalPEG* (aBody: untyped): untyped =
                                            fName: "optionalPEG"))
 
 
-template checkPEG* (aBody: untyped): untyped =
+template checkPEG*(aBody: untyped): untyped =
   block checkPEG:
     pushPEG
     aBody
     popPEG
 
 
-template notCheckPEG* (aBody: untyped): untyped =
+template notCheckPEG*(aBody: untyped): untyped =
   block notCheckPEG:
     checkPEG:
       aBody
     when lResult is bool:
       lResult = not lResult
     else:
-      if lResult.hasValue:
+      if (lResult.hasValue):
         lResult = Nothing[SimplePEGNodeObject]()
       else:
         lResult =
@@ -543,12 +545,12 @@ template notCheckPEG* (aBody: untyped): untyped =
                                    fName: "notCheckPEG"))
 
 
-template stringOfPEG* (aBody: untyped): untyped =
+template stringOfPEG*(aBody: untyped): untyped =
   block stringOfPEG:
     when not (lResult is bool):
       pushStackStatePEG
       aBody
-      if lResult.isTrue and (lStackLen < lStack.len):
+      if (lResult.isTrue and (lStackLen < lStack.len)):
         var lItems: SimplePEGNodeObjectSeq =
           newSeqOfCap[SimplePEGNodeObject](lStack.len - lStackLen)
         for lItem in lStackLen .. lStack.len.pred:
@@ -565,25 +567,25 @@ template stringOfPEG* (aBody: untyped): untyped =
       aBody
 
 
-template sequencePEG* (aBody,
+template sequencePEG*(aBody,
                        aAndBody: untyped): untyped =
   block sequencePEG:
     aBody
-    if lResult.isTrue:
+    if (lResult.isTrue):
       aAndBody
 
 
-template alternationPEG* (aBody,
+template alternationPEG*(aBody,
                           aOrBody: untyped): untyped =
   block alternationPEG:
     pushPEG
     aBody
-    if not lResult.isTrue:
+    if (not lResult.isTrue):
       popPEG
       aOrBody
 
 
-template notTerminalPEG* (aRuleName: untyped): untyped =
+template notTerminalPEG*(aRuleName: untyped): untyped =
   block notTerminalPEG:
     let lRuleResult = aStream.aRuleName
     when lResult is bool:
@@ -593,7 +595,7 @@ template notTerminalPEG* (aRuleName: untyped): untyped =
         lResult = lRuleResult.hasValue
     else:
       when lRuleResult is bool:
-        if lRuleResult:
+        if (lRuleResult):
           lResult =
             Just(SimplePEGNodeObject(fIsTerminal: false,
                                      fName: astToStr(aRulename)))
@@ -601,11 +603,11 @@ template notTerminalPEG* (aRuleName: untyped): untyped =
           lResult = Nothing[SimplePEGNodeObject]()
       else:
         lResult = lRuleResult
-        if lResult.hasValue:
+        if (lResult.hasValue):
           lStack.add(lResult.value)
 
 
-template terminalPEG* (aExpectedValue: SimplePegCharSet): untyped =
+template terminalPEG*(aExpectedValue: SimplePegCharSet): untyped =
   block terminalPEG:
     when lResult is bool:
       when (aExpectedValue is string):
@@ -617,7 +619,7 @@ template terminalPEG* (aExpectedValue: SimplePegCharSet): untyped =
         let lTerminal = aStream.stringInString(aExpectedValue)
       else:
         let lTerminal = aStream.charInChars(aExpectedValue)
-      if lTerminal.hasValue:
+      if (lTerminal.hasValue):
         lResult =
           Just(SimplePEGNodeObject(fIsTerminal: true,
                                    fSlice: lTerminal.value))
@@ -626,13 +628,13 @@ template terminalPEG* (aExpectedValue: SimplePegCharSet): untyped =
         lResult = Nothing[SimplePEGNodeObject]()
 
 
-template terminalNoCasePEG* (aExpectedValue: string): untyped =
+template terminalNoCasePEG*(aExpectedValue: string): untyped =
   block terminalPEG:
     when lResult is bool:
       lResult = aStream.stringInStringNoCase(aExpectedValue).hasValue
     else:
       let lTerminal = aStream.stringInString(aExpectedValue)
-      if lTerminal.hasValue:
+      if (lTerminal.hasValue):
         lResult =
           Just(SimplePEGNodeObject(fIsTerminal: true,
                                    fSlice: lTerminal.value))
@@ -647,9 +649,9 @@ include simplePEG/GRMs/WAXEYE
 func getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
 
   func getWAXEYENim_Inner (aSimpleASTNodeRef: SimpleASTNodeRef,
-      aForwardDefinitions: var string, aSpaces: int = 0): string =
-    result = ""
-    if not aSimpleASTNodeRef.isNil:
+                           aForwardDefinitions: var string,
+                           aSpaces: int = 0): string =
+    if (not aSimpleASTNodeRef.isNil):
       var lSpaces = aSpaces
       let lChildren = aSimpleASTNodeRef.children
       case aSimpleASTNodeRef.name
@@ -657,10 +659,11 @@ func getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
         result &= "\n\n"
         case lChildren[1].name
         of "LeftArrow":
+          let lValue = lChildren[0].value
           aForwardDefinitions &= "leftDefinitionPEGForward(" &
-            lChildren[0].value &
+            lValue &
             ")\n"
-          result &= "leftDefinitionPEG(" & lChildren[0].value & "):\n"
+          result &= "leftDefinitionPEG(" & lValue & "):\n"
         of "VoidArrow":
           aForwardDefinitions &= "voidDefinitionPEGForward(" &
             lChildren[0].value &
@@ -678,7 +681,7 @@ func getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
                                        lSpaces)
         result &= "\n"
       of "Alternation":
-        if lChildren.len > 1:
+        if (lChildren.len > 1):
           result &= " ".repeat(lSpaces) & "alternationPEG:\n"
           result &= getWAXEYENim_Inner(lChildren[0],
                                        aForwardDefinitions,
@@ -701,7 +704,7 @@ func getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
                                        aForwardDefinitions,
                                        lSpaces)
       of "Sequence":
-        if lChildren.len > 1:
+        if (lChildren.len > 1):
           result &= " ".repeat(lSpaces) & "sequencePEG:\n"
           result &= getWAXEYENim_Inner(lChildren[0],
                                        aForwardDefinitions,
@@ -725,7 +728,7 @@ func getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
                                        lSpaces)
       of "Unit":
         var lStartIndex = 0
-        if lChildren[0].name == "Prefix":
+        if ("Prefix" == lChildren[0].name):
           lStartIndex = 1
           case lChildren[0].children[0].name
           of "?":
@@ -764,7 +767,7 @@ func getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
       of "Char":
         let lValue = aSimpleASTNodeRef.value
         result = lValue
-        if lValue[0] == '\\':
+        if (lValue[0] == '\\'):
           case lValue[1]
           of 'n':
             result = "\\x0A"
@@ -785,7 +788,7 @@ func getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
       of "Hex":
         result &= "\\x" & aSimpleASTNodeRef.value.toUpperAscii
       of "Range":
-        if lChildren.len == 1:
+        if (lChildren.len == 1):
           result &= "'" &
               getWAXEYENim_Inner(lChildren[0],
                                  aForwardDefinitions) &
@@ -805,18 +808,17 @@ func getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
           let lChild_Inner = getWAXEYENim_Inner(lChild,
                                                 aForwardDefinitions,
                                                 lSpaces)
-          if not ("" == lChild_Inner):
-            if lAdd:
-              result &= ", "
-            else:
-              lAdd = true
-            result &= lChild_Inner
+          if (lAdd):
+            result &= ", "
+          else:
+            lAdd = true
+          result &= lChild_Inner
         result &= "}.terminalPEG"
       of "Identifier":
         result = aSimpleASTNodeRef.value
         let lParent = aSimpleASTNodeRef.parent
-        if not(lParent.isNil):
-          if lParent.name == "Unit":
+        if (not(lParent.isNil)):
+          if ("Unit" == lParent.name):
             result = " ".repeat(lSpaces) & result & ".notTerminalPEG"
       else:
         for lChild in lChildren:
@@ -824,7 +826,6 @@ func getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
                                        aForwardDefinitions,
                                        lSpaces)
 
-  result = ""
   var aForwardDefinitions = ""
   result = getWAXEYENim_Inner(aSimpleASTNodeRef,
                               aForwardDefinitions)
@@ -879,23 +880,52 @@ Ws          <- *( :[ \t]
             |  SComment
             |  MComment)
 """
+  # when NimVersion > "0.18.0":
+  #   {.experimental: "notnil".}
+
+  # type
+  #     MainModulTest1NodeRef* = ref MainModulTest1Object
+  #     MainModulTest1Node* = MainModulTest1NodeRef not nil
+  #     MainModulTest1Object* = object
+  #       FName: string
+
+  # proc mainModulTest1(aName: string = ""):MainModulTest1Node {. inline .}=
+  #   result = MainModulTest1Node()
+  #   result.Fname = aName
+
+  # proc mainModulTest2:string =
+  #   for index in [1,2,3]:
+  #     echo "[$1]" % $index
+  #     result &= mainModulTest1().FName
+
+  # proc mainModule =
+  #   let B = mainModulTest2()
+  #   echo "[$1]" % B
+
+  # proc mainModule =
+  #   WAXEYE_GRAMMAR_WAXEYE.withStream(lStream):
+  #     # echo "<>$1<>" % lStream.readstr(0)
+  #     echo "<>$1<>" % lStream.fString.substr(0,-1)
+  #     echo "<>$1<>" % lStream.fString.substr(0,0)
+  #     echo "<>$1<>" % lStream.fString.substr(0,1)
+
 
   proc mainModule =
-    # "a <- \"12\" b <: \"34\" \"56\"".withStream(lStream):
-    #   let lSimpleASTNode = lStream.WAXEYE().asSimpleASTNode
-    #   if not lSimpleASTNode.isNil:
-    #     echo lSimpleASTNode.asASTStr
+  #   # "a <- \"12\" b <: \"34\" \"56\"".withStream(lStream):
+  #   #   let lSimpleASTNode = lStream.WAXEYE().asSimpleASTNode
+  #   #   if (not lSimpleASTNode.isNil):
+  #   #     echo lSimpleASTNode.asASTStr
 
     WAXEYE_GRAMMAR_WAXEYE.withStream(lStream):
       let lWAXEYE = lStream.WAXEYE
       echo $lWAXEYE
       let lSimpleASTNode = lWAXEYE.asSimpleASTNode
-      if not lSimpleASTNode.isNil:
+      if (not lSimpleASTNode.isNil):
         echo lSimpleASTNode.asASTStr
         echo lSimpleASTNode.getWAXEYENim
 
   mainModule()
-  #[ 
+  #[
   nim --putenv:NIM_VERBOSITY=3 cBuild release 2> log.txt
   nim cRun release > log.txt
   ]#
