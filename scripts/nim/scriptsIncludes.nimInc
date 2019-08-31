@@ -157,11 +157,12 @@ proc findTestFiles (): seq[string] =
 proc switchCommon () =
   let lNimVerbosity = getNimVerbosity()
   if splitCmdLine().params == "release":
-    switch "define", "release"
     switch "stackTrace", "off"
     switch "lineTrace", "off"
     switch "assertions", "off"
     switch "checks", "off"
+    switch "define", "release"
+    switch "define", "danger"
   else:
     switch "embedsrc"
   switch "verbosity", lNimVerbosity

@@ -255,9 +255,9 @@ func stringInString*(aStream: SimplePegInputStream,
                            aUsePeek)
   if (lRead.hasValue):
     let lAsString = lRead.value.asString
-    if equalEx(lAsString,
-               aString,
-               aCasesInsensitive):
+    if (equalEx(lAsString,
+                aString,
+                aCasesInsensitive)):
       when aSaveAsString:
         lRead.value.fAsString = lAsString
       result = Just(lRead.value)
