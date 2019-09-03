@@ -28,7 +28,7 @@ voidDefinitionPEGForward(Ws)
 
 
 
-leftDefinitionPEG(WAXEYE):
+WAXEYE.leftDefinitionPEG:
   sequencePEG:
     Ws.notTerminalPEG
   do:
@@ -36,7 +36,7 @@ leftDefinitionPEG(WAXEYE):
       Definition.notTerminalPEG
 
 
-leftDefinitionPEG(Definition):
+Definition.leftDefinitionPEG:
   sequencePEG:
     Identifier.notTerminalPEG
   do:
@@ -49,7 +49,7 @@ leftDefinitionPEG(Definition):
         Ws.notTerminalPEG
 
 
-leftDefinitionPEG(Alternation):
+Alternation.leftDefinitionPEG:
   sequencePEG:
     Sequence.notTerminalPEG
   do:
@@ -60,12 +60,12 @@ leftDefinitionPEG(Alternation):
         Sequence.notTerminalPEG
 
 
-leftDefinitionPEG(Sequence):
+Sequence.leftDefinitionPEG:
   plusPEG:
     Unit.notTerminalPEG
 
 
-leftDefinitionPEG(Unit):
+Unit.leftDefinitionPEG:
   sequencePEG:
     optionalPEG:
       Prefix.notTerminalPEG
@@ -98,14 +98,14 @@ leftDefinitionPEG(Unit):
               WildCard.notTerminalPEG
 
 
-leftDefinitionPEG(Prefix):
+Prefix.leftDefinitionPEG:
   sequencePEG:
     {'?', '*', '+', ':', '&', '!', '$'}.terminalPEG
   do:
     Ws.notTerminalPEG
 
 
-leftDefinitionPEG(Identifier):
+Identifier.leftDefinitionPEG:
   sequencePEG:
     stringOfPEG:
       sequencePEG:
@@ -117,7 +117,7 @@ leftDefinitionPEG(Identifier):
     Ws.notTerminalPEG
 
 
-leftDefinitionPEG(Literal):
+Literal.leftDefinitionPEG:
   sequencePEG:
     voidPEG:
       {'\''}.terminalPEG
@@ -141,7 +141,7 @@ leftDefinitionPEG(Literal):
         Ws.notTerminalPEG
 
 
-leftDefinitionPEG(CaseLiteral):
+CaseLiteral.leftDefinitionPEG:
   sequencePEG:
     voidPEG:
       {'"'}.terminalPEG
@@ -165,7 +165,7 @@ leftDefinitionPEG(CaseLiteral):
         Ws.notTerminalPEG
 
 
-leftDefinitionPEG(LChar):
+LChar.leftDefinitionPEG:
   alternationPEG:
     sequencePEG:
       "\\".terminalPEG
@@ -183,7 +183,7 @@ leftDefinitionPEG(LChar):
         anyPEG
 
 
-leftDefinitionPEG(CharClass):
+CharClass.leftDefinitionPEG:
   sequencePEG:
     voidPEG:
       "[".terminalPEG
@@ -203,7 +203,7 @@ leftDefinitionPEG(CharClass):
         Ws.notTerminalPEG
 
 
-leftDefinitionPEG(Range):
+Range.leftDefinitionPEG:
   sequencePEG:
     alternationPEG:
       Char.notTerminalPEG
@@ -221,7 +221,7 @@ leftDefinitionPEG(Range):
           Hex.notTerminalPEG
 
 
-leftDefinitionPEG(Char):
+Char.leftDefinitionPEG:
   alternationPEG:
     sequencePEG:
       "\\".terminalPEG
@@ -243,7 +243,7 @@ leftDefinitionPEG(Char):
           anyPEG
 
 
-leftDefinitionPEG(Hex):
+Hex.leftDefinitionPEG:
   sequencePEG:
     voidPEG:
       "\\<".terminalPEG
@@ -258,7 +258,7 @@ leftDefinitionPEG(Hex):
           ">".terminalPEG
 
 
-leftDefinitionPEG(WildCard):
+WildCard.leftDefinitionPEG:
   sequencePEG:
     voidPEG:
       ".".terminalPEG
@@ -266,7 +266,7 @@ leftDefinitionPEG(WildCard):
     Ws.notTerminalPEG
 
 
-pruneDefinitionPEG(Arrow):
+Arrow.pruneDefinitionPEG:
   alternationPEG:
     LeftArrow.notTerminalPEG
   do:
@@ -276,7 +276,7 @@ pruneDefinitionPEG(Arrow):
       VoidArrow.notTerminalPEG
 
 
-leftDefinitionPEG(LeftArrow):
+LeftArrow.leftDefinitionPEG:
   sequencePEG:
     voidPEG:
       "<-".terminalPEG
@@ -284,7 +284,7 @@ leftDefinitionPEG(LeftArrow):
     Ws.notTerminalPEG
 
 
-leftDefinitionPEG(PruneArrow):
+PruneArrow.leftDefinitionPEG:
   sequencePEG:
     voidPEG:
       "<=".terminalPEG
@@ -292,7 +292,7 @@ leftDefinitionPEG(PruneArrow):
     Ws.notTerminalPEG
 
 
-leftDefinitionPEG(VoidArrow):
+VoidArrow.leftDefinitionPEG:
   sequencePEG:
     voidPEG:
       "<:".terminalPEG
@@ -300,28 +300,28 @@ leftDefinitionPEG(VoidArrow):
     Ws.notTerminalPEG
 
 
-voidDefinitionPEG(Alt):
+Alt.voidDefinitionPEG:
   sequencePEG:
     "|".terminalPEG
   do:
     Ws.notTerminalPEG
 
 
-voidDefinitionPEG(Open):
+Open.voidDefinitionPEG:
   sequencePEG:
     "(".terminalPEG
   do:
     Ws.notTerminalPEG
 
 
-voidDefinitionPEG(Close):
+Close.voidDefinitionPEG:
   sequencePEG:
     ")".terminalPEG
   do:
     Ws.notTerminalPEG
 
 
-voidDefinitionPEG(SComment):
+SComment.voidDefinitionPEG:
   sequencePEG:
     "#".terminalPEG
   do:
@@ -340,7 +340,7 @@ voidDefinitionPEG(SComment):
           anyPEG
 
 
-voidDefinitionPEG(MComment):
+MComment.voidDefinitionPEG:
   sequencePEG:
     "/*".terminalPEG
   do:
@@ -358,7 +358,7 @@ voidDefinitionPEG(MComment):
       "*/".terminalPEG
 
 
-voidDefinitionPEG(EndOfLine):
+EndOfLine.voidDefinitionPEG:
   alternationPEG:
     sequencePEG:
       "\x0D".terminalPEG
@@ -369,10 +369,11 @@ voidDefinitionPEG(EndOfLine):
     "\x0A".terminalPEG
 
 
-voidDefinitionPEG(Ws):
+Ws.voidDefinitionPEG:
   closurePEG:
     alternationPEG:
-      {' ', '\t'}.terminalPEG
+      voidPEG:
+        {' ', '\t'}.terminalPEG
     do:
       alternationPEG:
         EndOfLine.notTerminalPEG

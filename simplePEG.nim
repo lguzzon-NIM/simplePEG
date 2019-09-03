@@ -396,7 +396,6 @@ template leftDefinitionPEGForward(aRuleName: untyped): untyped =
                             aStream,
                             SimplePEGNodeObjectOption)
 
-
 template leftDefinitionPEG(aRuleName: untyped,
                            aBody: untyped): untyped =
   innerDefinitionPEG(aRuleName,
@@ -646,6 +645,8 @@ template terminalNoCasePEG*(aExpectedValue: string): untyped =
 include simplePEG/GRMs/WAXEYE
 
 
+
+
 func getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
 
   func getWAXEYENim_Inner (aSimpleASTNodeRef: SimpleASTNodeRef,
@@ -657,23 +658,10 @@ func getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
       case aSimpleASTNodeRef.name
       of "Definition":
         result &= "\n\n"
-        case lChildren[1].name
-        of "LeftArrow":
-          let lValue = lChildren[0].value
-          aForwardDefinitions &= "leftDefinitionPEGForward(" &
-            lValue &
-            ")\n"
-          result &= "leftDefinitionPEG(" & lValue & "):\n"
-        of "VoidArrow":
-          aForwardDefinitions &= "voidDefinitionPEGForward(" &
-            lChildren[0].value &
-            ")\n"
-          result &= "voidDefinitionPEG(" & lChildren[0].value & "):\n"
-        of "PruneArrow":
-          aForwardDefinitions &= "pruneDefinitionPEGForward(" &
-            lChildren[0].value &
-            ")\n"
-          result &= "pruneDefinitionPEG(" & lChildren[0].value & "):\n"
+        let lValue = lChildren[0].value
+        let lArrowType = lChildren[1].name.noRight("Arrow".len).toLower
+        aForwardDefinitions &= "$2DefinitionPEGForward($1)\n" % [lValue, lArrowType]
+        result &= "$1.$2DefinitionPEG:\n" % [lValue, lArrowType]
         lSpaces += 2
         for lIndex in 2 .. lChildren.len.pred:
           result &= getWAXEYENim_Inner(lChildren[lIndex],
@@ -875,7 +863,7 @@ MComment    <: '/*' *( MComment
                     | !'*/' . ) '*/'
 EndOfLine   <: '\r' ?'\n'
             |  '\n'
-Ws          <- *( :[ \t]
+Ws          <: *( :[ \t]
             |  EndOfLine
             |  SComment
             |  MComment)
