@@ -1,12 +1,17 @@
+
 import unittest
-import os
-import osproc
-import strutils
 
-import simplePEG
-import simplePEG/consts
+when defined(js):
+  discard
+else:
+  import os
+  import osproc
+  import strutils
 
-include "../scripts/nim/scriptsEnvVarNames.nimInc"
+  import simplePEG
+  import simplePEG/consts
+
+  include "../scripts/nim/scriptsEnvVarNames.nim"
 
 suite "integration-test suite":
   test "getMessage excecuting the app":

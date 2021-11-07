@@ -7,25 +7,24 @@ import simplePEG/typeEx
 import simplePEG/strProcs
 
 
-{.warning[ProveField]: off.}
 
 type
   SimplePEGIndex = int
   SimplePEGLength = int
 
   SimplePegInputStream = ref SimplePegInputStreamObject
-  SimplePegInputStreamObject {.final.} = object
+  SimplePegInputStreamObject {.acyclic, final.} = object
     fIndex: SimplePEGIndex
     fString: string
 
-  SimplePEGSliceObject {.final.} = object
+  SimplePEGSliceObject {.acyclic, final.} = object
     fStream: SimplePegInputStream
     fIndex: SimplePEGIndex
     fLength: SimplePEGLength
     fAsString: string
 
   SimplePEGNodeObjectSeq = seq[SimplePEGNodeObject]
-  SimplePEGNodeObject = object
+  SimplePEGNodeObject {.acyclic, final.} = object
     case fIsTerminal: bool
     of true:
       fSlice: SimplePEGSliceObject
@@ -174,9 +173,7 @@ template withStream (aString: string,
                      aStream,
                      aBody: untyped) =
   block withStream:
-    let aStream {.inject.}: SimplePegInputStream =
-      SimplePegInputStream(fIndex: 0,
-                           fString: aString)
+    let aStream {.inject.} = SimplePegInputStream(fIndex: 0, fString: aString)
     if (not aStream.isNil):
       block withStream_Body:
         aBody
@@ -317,7 +314,7 @@ template stringInStringNoCaseAsString*(aStream: SimplePegInputStream,
                          true)
 
 
-template stringInStringPeekCaseAsString * (aStream: SimplePegInputStream,
+template stringInStringPeekCaseAsString*(aStream: SimplePegInputStream,
                                           aString: string): SimplePEGSliceObjectOption =
   aStream.stringInString(aString,
                          false,
@@ -325,7 +322,7 @@ template stringInStringPeekCaseAsString * (aStream: SimplePegInputStream,
                          true)
 
 
-template stringInStringPeekNoCaseAsString * (aStream: SimplePegInputStream,
+template stringInStringPeekNoCaseAsString*(aStream: SimplePegInputStream,
                                             aString: string): SimplePEGSliceObjectOption =
   aStream.stringInString(aString,
                          aString,
@@ -568,7 +565,7 @@ template stringOfPEG*(aBody: untyped): untyped =
 
 
 template sequencePEG*(aBody,
-                       aAndBody: untyped): untyped =
+                      aAndBody: untyped): untyped =
   block sequencePEG:
     aBody
     if (lResult.isTrue):
@@ -576,7 +573,7 @@ template sequencePEG*(aBody,
 
 
 template alternationPEG*(aBody,
-                          aOrBody: untyped): untyped =
+                         aOrBody: untyped): untyped =
   block alternationPEG:
     pushPEG
     aBody
@@ -907,10 +904,10 @@ Ws          <: *( :[ \t]
 
     WAXEYE_GRAMMAR_WAXEYE.withStream(lStream):
       let lWAXEYE = lStream.WAXEYE
-      echo $lWAXEYE
+      # echo $lWAXEYE
       let lSimpleASTNode = lWAXEYE.asSimpleASTNode
       if (not lSimpleASTNode.isNil):
-        echo lSimpleASTNode.asASTStr
+        # echo lSimpleASTNode.asASTStr
         echo lSimpleASTNode.getWAXEYENim
 
   mainModule()

@@ -8,8 +8,7 @@ type
 
 
 template Just*[T](aValue: T): Maybe[T] =
-  type TT = T
-  Maybe[TT](hasValue: true,
+  Maybe[T](hasValue: true,
             value: aValue)
 
 func Nothing*[T]: Maybe[T] {.inline.} =
