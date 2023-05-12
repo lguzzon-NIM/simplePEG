@@ -32,14 +32,15 @@ const
   gcCLang = "clang"
   gcCCDefault = gcGCC
 
-  # --gc:refc|markAndSweep|boehm|go|none|regions
-  # switch "gc", "refc" - zig KO
-  # switch "gc", "markAndSweep" - zig KO
-  # switch "gc", "boehm" - zig ok
-  # switch "gc", "regions" - zig ok
-  # switch "gc", "arc" ???
-  # switch "gc", "orc" ???
-  gcGCDefault = "refc"
+  # --mm:orc|arc|refc|markAndSweep|boehm|go|none|regions
+  # switch "mm", "refc" - zig KO in debug
+  # switch "mm", "markAndSweep" - zig ok
+  # switch "mm", "boehm" - zig KO no libGc
+  # switch "mm", "go" - zig KO no libGo
+  # switch "mm", "regions" - zig ok
+  # switch "mm", "arc" - zig ok
+  # switch "mm", "orc" - zig ok
+  gcGCDefault = "orc"
 
 var gReleaseOption = false
 
@@ -293,10 +294,13 @@ zig cc $2"$$@"
       else:
         switch "passL", "-static -no-pie"
   of gcZIG:
-    switch "passL", "-static -no-pie"
-    if (gcWindowsStr == getTargetOS()):
-      switch "clang.options.linker", ""
-      switch "clang.cpp.options.linker", ""
+    if (gcMacOsXStr == getTargetOS()):
+      switch "passL", "-static"
+    else:
+      switch "passL", "-static -no-pie"
+      if (gcWindowsStr == getTargetOS()):
+        switch "clang.options.linker", ""
+        switch "clang.cpp.options.linker", ""
   else:
     discard
 
@@ -305,7 +309,7 @@ proc switchCommon () =
   let lNimVerbosity = getNimVerbosity()
   switch "verbosity", lNimVerbosity
   setCC()
-  switch "gc", getGC()
+  switch "mm", getGC()
   if getReleaseOption():
     switch "define", "release"
     switch "define", "quick"
@@ -676,6 +680,34 @@ task Util_TravisEnvMat, "generate the complete travis-ci env matrix":
         lGetEnvValue(lHeader & lEnvs[aIndex][lIndex], aIndex + 1)
     else:
       lResult &= "- '" & aResult & "'\n"
+
+  lGetEnvValue("", lEnvsLow)
+  echo lResult
+
+
+task Util_AppveyourEnvMat, "generate the complete appveyor-ci env matrix":
+  const
+    lEnvs = @[
+              @[gcGCCVersionToUseEnvVarName, "11"],
+              @[gcTargetOSEnvVarName, gcLinuxStr, gcWindowsStr],
+              @[gcTargetCpuEnvVarName, gcAmd64, gcI386],
+              @[gcNimTagSelector, "1.6.0", "1.4.8", "devel"],
+              @[gcGCEnvVarName, "refc", "orc"]
+      ]
+    lEnvsLow = lEnvs.low
+    lEnvsHigh = lEnvs.high
+  var
+    lResult = ""
+
+  proc lGetEnvValue(aResult: string, aIndex: int) =
+    if (aIndex <= lEnvsHigh):
+      var lHeader = aResult
+      lHeader.addSep("\n      ")
+      lHeader &= lEnvs[aIndex][0] & ": "
+      for lIndex in 1..lEnvs[aIndex].high:
+        lGetEnvValue(lHeader & lEnvs[aIndex][lIndex], aIndex + 1)
+    else:
+      lResult &= "    - " & aResult & "\n"
 
   lGetEnvValue("", lEnvsLow)
   echo lResult
