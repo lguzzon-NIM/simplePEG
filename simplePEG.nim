@@ -846,25 +846,25 @@ Char        <- '\\' [nrt\-\]\\]
             |  !'\\' !']' !EndOfLine .
 Hex         <- :'\\<' [0-9A-Fa-f] [0-9A-Fa-f] :'>'
 WildCard    <- :'.' Ws
-Arrow       <= LeftArrow
-            |  PruneArrow
-            |  VoidArrow
-LeftArrow   <- :'<-' Ws
-PruneArrow  <- :'<=' Ws
-VoidArrow   <- :'<:' Ws
+Arrow       <= :'<' ( LeftArrow
+                    |  PruneArrow
+                    |  VoidArrow )
+LeftArrow   <- :'-' Ws
+PruneArrow  <- :'=' Ws
+VoidArrow   <- :':' Ws
 Alt         <: '|' Ws
 Open        <: '(' Ws
 Close       <: ')' Ws
 SComment    <: '#' *( !EndOfLine . ) ( EndOfLine
-                                    | !. )
+                                     | !. )
 MComment    <: '/*' *( MComment
-                    | !'*/' . ) '*/'
+                     | !'*/' . ) '*/'
 EndOfLine   <: '\r' ?'\n'
             |  '\n'
 Ws          <: *( :[ \t]
-            |  EndOfLine
-            |  SComment
-            |  MComment)
+                |  EndOfLine
+                |  SComment
+                |  MComment)
 """
   # when NimVersion > "0.18.0":
   #   {.experimental: "notnil".}
