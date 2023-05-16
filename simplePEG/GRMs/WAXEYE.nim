@@ -267,19 +267,23 @@ WildCard.leftDefinitionPEG:
 
 
 Arrow.pruneDefinitionPEG:
-  alternationPEG:
-    LeftArrow.notTerminalPEG
+  sequencePEG:
+    voidPEG:
+      "<".terminalPEG
   do:
     alternationPEG:
-      PruneArrow.notTerminalPEG
+      LeftArrow.notTerminalPEG
     do:
-      VoidArrow.notTerminalPEG
+      alternationPEG:
+        PruneArrow.notTerminalPEG
+      do:
+        VoidArrow.notTerminalPEG
 
 
 LeftArrow.leftDefinitionPEG:
   sequencePEG:
     voidPEG:
-      "<-".terminalPEG
+      "-".terminalPEG
   do:
     Ws.notTerminalPEG
 
@@ -287,7 +291,7 @@ LeftArrow.leftDefinitionPEG:
 PruneArrow.leftDefinitionPEG:
   sequencePEG:
     voidPEG:
-      "<=".terminalPEG
+      "=".terminalPEG
   do:
     Ws.notTerminalPEG
 
@@ -295,7 +299,7 @@ PruneArrow.leftDefinitionPEG:
 VoidArrow.leftDefinitionPEG:
   sequencePEG:
     voidPEG:
-      "<:".terminalPEG
+      ":".terminalPEG
   do:
     Ws.notTerminalPEG
 
