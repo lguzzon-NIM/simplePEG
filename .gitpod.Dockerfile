@@ -3,7 +3,7 @@ FROM	gitpod/workspace-full
 RUN \
   echo "**** install runtime dependencies ****" \
   && sudo apt-get update \
-  && sudo apt-get install -y \
+  && sudo apt-get install -y --no-install-recommends \
     git-flow \
   && echo "**** clean up ****" \
   && sudo apt-get autoremove \
