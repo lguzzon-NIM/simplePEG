@@ -847,8 +847,8 @@ Char        <- '\\' [nrt\-\]\\]
 Hex         <- :'\\<' [0-9A-Fa-f] [0-9A-Fa-f] :'>'
 WildCard    <- :'.' Ws
 Arrow       <= :'<' ( LeftArrow
-                    |  PruneArrow
-                    |  VoidArrow )
+                    | PruneArrow
+                    | VoidArrow )
 LeftArrow   <- :'-' Ws
 PruneArrow  <- :'=' Ws
 VoidArrow   <- :':' Ws
