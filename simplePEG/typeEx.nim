@@ -1,5 +1,4 @@
 
-
 type
   Maybe*[T] {.final.} = object
     case hasValue*: bool
