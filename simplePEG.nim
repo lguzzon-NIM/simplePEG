@@ -153,11 +153,12 @@ func endIndex(aSelf: SimplePEGNode): int =
 
 
 func valuePEG (aSelf: SimplePEGNode): string =
+  result = ""
   when aSelf is SimplePEGNodeObject:
     let lSelf = aSelf
   else:
     if (not aSelf.hasValue):
-      return ""
+      return result
     let lSelf = aSelf.value
   if (lSelf.fIsTerminal):
     result = lSelf.fSlice.asString
@@ -402,6 +403,7 @@ template leftDefinitionPEG(aRuleName: untyped,
     block leftDefinitionPEG:
       var lStack {.inject.} = newSeqOfCap[SimplePEGNodeObject](8)
       var lResult {.inject.} = Nothing[SimplePEGNodeObject]()
+      result = Nothing[SimplePEGNodeObject]()
       aBody
       if (lResult.isTrue):
         if (0 == lStack.len):
@@ -411,8 +413,6 @@ template leftDefinitionPEG(aRuleName: untyped,
         result = Just(SimplePEGNodeObject(fIsTerminal: false,
                                           fName: astToStr(aRuleName),
                                           fItems: lStack))
-      else:
-        result = Nothing[SimplePEGNodeObject]()
 
 
 template voidDefinitionPEGForward(aRuleName: untyped): untyped =
@@ -428,6 +428,7 @@ template voidDefinitionPEG(aRuleName: untyped,
                      bool):
     block voidDefinitionPEG:
       var lResult {.inject.} = false
+      result = lResult
       aBody
       result = lResult
 
@@ -650,6 +651,7 @@ func getWAXEYENim (aSimpleASTNodeRef: SimpleASTNodeRef): string =
   func getWAXEYENim_Inner (aSimpleASTNodeRef: SimpleASTNodeRef,
                            aForwardDefinitions: var string,
                            aSpaces: int = 0): string =
+    result = ""
     if (not aSimpleASTNodeRef.isNil):
       var lSpaces = aSpaces
       let lChildren = aSimpleASTNodeRef.children
